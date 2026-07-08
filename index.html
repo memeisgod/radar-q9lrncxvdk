@@ -1,15 +1,17 @@
 <!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
 <title>Dump-Radar Dashboard</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 body{background:#0b0d13;color:#dfe4ea;font-family:'Segoe UI',Meiryo,sans-serif;margin:0;padding:12px}
 h1{font-size:16px;margin:2px 0 8px}
 .btn{display:inline-block;background:#181b25;border:1px solid #2a2f3f;color:#dfe4ea;
-     padding:5px 12px;margin:2px;border-radius:6px;cursor:pointer;font-size:13px;user-select:none}
+     padding:9px 14px;margin:3px;border-radius:8px;cursor:pointer;font-size:14px;user-select:none;
+     -webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .btn.on{background:#f7931a;color:#000;font-weight:bold}
+#hint{font-size:12px;color:#f7931a;margin:4px 0;min-height:16px}
 #chart{margin-top:8px;border-radius:8px;overflow:hidden;border:1px solid #1c2030}
-#draw{position:absolute;top:0;left:0;z-index:5;pointer-events:none}
+#draw{position:absolute;top:0;left:0;z-index:5;pointer-events:none;touch-action:none}
 #draw.active{pointer-events:auto;cursor:crosshair}
 .dim{color:#5b6272;font-size:11px}
 #feed{margin-top:10px;background:#12141c;border-radius:8px;padding:10px;font-size:13px;line-height:1.9}
@@ -18,7 +20,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-09 06:32 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-09 08:18 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -32,6 +34,7 @@ h1{font-size:16px;margin:2px 0 8px}
 <span class="btn" id="undo">↶ 戻す</span>
 <span class="btn" id="clr">🗑 全消去</span>
 </div>
+<div id="hint"></div>
 <div id="chart" style="position:relative"><canvas id="draw"></canvas></div>
 <div id="feed"></div>
 <script>
@@ -115,30 +118,34 @@ document.getElementById('feed').innerHTML = '<b>レーダー反応履歴 (直近
     return `<div class="feeditem" onclick="jump('${m.sym}')">` +
            `<span style="color:${c}">■</span> ${t} ${m.msg}</div>`;
   }).join('');
-// ---- 描画ツール (トレンド/水平線/フィボ、端末localStorageに銘柄×足別保存) ----
-let tool = 'cursor', drawings = {}, dragging = null;
+// ---- 描画ツール (タップ2点方式・iPhone最適化・端末localStorageに銘柄×足別保存) ----
+let tool = 'cursor', drawings = [], pending = null, hover = null;
 const dc = document.getElementById('draw'), dctx = dc.getContext('2d');
+const hintEl = document.getElementById('hint');
 const FIB = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+const LABELS = {trend:'トレンドライン', hline:'水平線', fib:'フィボナッチ'};
 function dkey(){ return `draw_${sym}_${iv}`; }
 function loadDrawings(){ try { drawings = JSON.parse(localStorage.getItem(dkey())||'[]'); } catch(e){ drawings=[]; } if(!Array.isArray(drawings)) drawings=[]; }
 function saveDrawings(){ localStorage.setItem(dkey(), JSON.stringify(drawings)); }
+function setHint(t){ hintEl.textContent = t || ''; }
 
 document.querySelectorAll('.tool').forEach(b => b.onclick = () => {
-  tool = b.dataset.tool; sel('.tool', b);
+  tool = b.dataset.tool; sel('.tool', b); pending = null;
   dc.classList.toggle('active', tool !== 'cursor');
+  if(tool==='cursor') setHint('');
+  else if(tool==='hline') setHint('引きたい価格をタップ');
+  else setHint(`${LABELS[tool]}: 1点目をタップ`);
+  redraw();
 });
-document.getElementById('undo').onclick = () => { drawings.pop(); saveDrawings(); redraw(); };
-document.getElementById('clr').onclick = () => { if(confirm('この銘柄・足の描画を全消去?')){ drawings=[]; saveDrawings(); redraw(); } };
+document.getElementById('undo').onclick = () => { pending=null; drawings.pop(); saveDrawings(); redraw(); };
+document.getElementById('clr').onclick = () => { if(confirm('この銘柄・足の描画を全消去?')){ drawings=[]; pending=null; saveDrawings(); redraw(); } };
 
-// 価格/時間 ⇔ 画面座標 の変換 (スクロール/ズームに追従)
 function toXY(pt){
   const x = chart.timeScale().timeToCoordinate(pt.t);
   const y = candles.priceToCoordinate(pt.p);
   return (x==null||y==null) ? null : {x, y};
 }
-function fromXY(x, y){
-  return {t: chart.timeScale().coordinateToTime(x), p: candles.coordinateToPrice(y)};
-}
+function fromXY(x, y){ return {t: chart.timeScale().coordinateToTime(x), p: candles.coordinateToPrice(y)}; }
 function resizeCanvas(){
   dc.width = el.clientWidth; dc.height = el.clientHeight;
   dc.style.width = el.clientWidth+'px'; dc.style.height = el.clientHeight+'px';
@@ -147,57 +154,66 @@ function resizeCanvas(){
 function redraw(){
   dctx.clearRect(0,0,dc.width,dc.height);
   for(const d of drawings) paint(d);
-  if(dragging) paint(dragging);
+  if(pending){
+    // 確定済み1点目を大きめの掴みやすいマーカーで表示 + プレビュー
+    if(hover) paint({type:tool, a:pending, b:hover, color:'#f7931a', preview:true});
+    const a = toXY(pending);
+    if(a){ dctx.fillStyle='#f7931a'; dctx.beginPath(); dctx.arc(a.x,a.y,6,0,7); dctx.fill(); }
+  }
 }
 function paint(d){
-  dctx.lineWidth = 1.5; dctx.strokeStyle = d.color || '#f7931a'; dctx.font='11px sans-serif';
+  dctx.lineWidth = d.preview ? 1 : 1.8;
+  dctx.setLineDash(d.preview ? [4,4] : []);
+  dctx.strokeStyle = d.color || '#f7931a'; dctx.font='12px sans-serif';
   if(d.type==='hline'){
-    const y = candles.priceToCoordinate(d.p); if(y==null) return;
+    const y = candles.priceToCoordinate(d.p); if(y==null){ dctx.setLineDash([]); return; }
     dctx.beginPath(); dctx.moveTo(0,y); dctx.lineTo(dc.width,y); dctx.stroke();
-    dctx.fillStyle=d.color||'#f7931a'; dctx.fillText(d.p.toPrecision(6), 4, y-3);
+    dctx.fillStyle=d.color||'#f7931a'; dctx.fillText(d.p.toPrecision(6), 4, y-4);
   } else if(d.type==='trend'){
-    const a=toXY(d.a), b=toXY(d.b); if(!a||!b) return;
+    const a=toXY(d.a), b=toXY(d.b); if(!a||!b){ dctx.setLineDash([]); return; }
     dctx.beginPath(); dctx.moveTo(a.x,a.y); dctx.lineTo(b.x,b.y); dctx.stroke();
   } else if(d.type==='fib'){
-    const a=toXY(d.a), b=toXY(d.b); if(!a||!b) return;
-    dctx.strokeStyle='#8b93a1'; dctx.beginPath(); dctx.moveTo(a.x,a.y); dctx.lineTo(a.x,b.y); dctx.stroke();
+    const a=toXY(d.a), b=toXY(d.b); if(!a||!b){ dctx.setLineDash([]); return; }
     for(const f of FIB){
       const p = d.a.p + (d.b.p - d.a.p)*f;
       const y = candles.priceToCoordinate(p); if(y==null) continue;
       dctx.strokeStyle = f===0||f===1 ? '#e74c3c' : '#f7931a';
       dctx.beginPath(); dctx.moveTo(Math.min(a.x,b.x),y); dctx.lineTo(dc.width,y); dctx.stroke();
-      dctx.fillStyle='#aeb6c2'; dctx.fillText(`${(f*100).toFixed(1)}% ${p.toPrecision(6)}`, Math.min(a.x,b.x)+4, y-3);
+      dctx.fillStyle='#aeb6c2'; dctx.fillText(`${(f*100).toFixed(1)}% ${p.toPrecision(6)}`, Math.min(a.x,b.x)+4, y-4);
     }
   }
+  dctx.setLineDash([]);
 }
 function evtXY(e){
   const r = dc.getBoundingClientRect();
-  const cx = (e.touches?e.touches[0].clientX:e.clientX) - r.left;
-  const cy = (e.touches?e.touches[0].clientY:e.clientY) - r.top;
-  return {cx, cy};
+  const src = e.changedTouches ? e.changedTouches[0] : e;
+  return {cx: src.clientX - r.left, cy: src.clientY - r.top};
 }
-function startDraw(e){
+// タップ確定方式: 1点目タップ→(プレビュー)→2点目タップで確定。水平線は1タップ。確定でカーソルに戻す。
+function onTap(e){
   if(tool==='cursor') return;
   e.preventDefault();
   const {cx,cy} = evtXY(e); const pt = fromXY(cx,cy);
   if(pt.t==null||pt.p==null) return;
-  if(tool==='hline'){ drawings.push({type:'hline', p:pt.p, color:'#f7931a'}); saveDrawings(); redraw(); return; }
-  dragging = {type:tool, a:{t:pt.t,p:pt.p}, b:{t:pt.t,p:pt.p}, color:'#f7931a'};
+  if(tool==='hline'){
+    drawings.push({type:'hline', p:pt.p, color:'#f7931a'}); saveDrawings();
+    backToCursor(); return;
+  }
+  if(!pending){ pending = {t:pt.t, p:pt.p}; setHint(`${LABELS[tool]}: 2点目をタップ`); redraw(); }
+  else { drawings.push({type:tool, a:pending, b:{t:pt.t,p:pt.p}, color:'#f7931a'});
+         pending=null; saveDrawings(); backToCursor(); }
 }
-function moveDraw(e){
-  if(!dragging) return; e.preventDefault();
-  const {cx,cy} = evtXY(e); const pt = fromXY(cx,cy);
-  if(pt.t!=null&&pt.p!=null){ dragging.b={t:pt.t,p:pt.p}; redraw(); }
+function onHover(e){
+  if(!pending) return;
+  const {cx,cy} = evtXY(e); hover = fromXY(cx,cy); redraw();
 }
-function endDraw(e){
-  if(!dragging) return;
-  drawings.push(dragging); dragging=null; saveDrawings(); redraw();
+function backToCursor(){
+  tool='cursor'; hover=null;
+  document.querySelectorAll('.tool').forEach(x => x.classList.toggle('on', x.dataset.tool==='cursor'));
+  dc.classList.remove('active'); setHint(''); redraw();
 }
-dc.addEventListener('mousedown', startDraw); dc.addEventListener('mousemove', moveDraw);
-window.addEventListener('mouseup', endDraw);
-dc.addEventListener('touchstart', startDraw, {passive:false});
-dc.addEventListener('touchmove', moveDraw, {passive:false});
-dc.addEventListener('touchend', endDraw);
+dc.addEventListener('pointerdown', onTap);
+dc.addEventListener('pointermove', onHover);
 chart.timeScale().subscribeVisibleTimeRangeChange(redraw);
 new ResizeObserver(resizeCanvas).observe(el);
 
