@@ -11,6 +11,7 @@ h1{font-size:16px;margin:2px 0 8px}
 .btn.on{background:#f7931a;color:#000;font-weight:bold}
 #hint{font-size:12px;color:#f7931a;margin:4px 0;min-height:16px}
 #chart{margin-top:8px;border-radius:8px;overflow:hidden;border:1px solid #1c2030}
+#ind{position:absolute;top:0;left:0;z-index:4;pointer-events:none}
 #draw{position:absolute;top:0;left:0;z-index:5;pointer-events:none;touch-action:none}
 #draw.active{pointer-events:auto;cursor:crosshair}
 .dim{color:#5b6272;font-size:11px}
@@ -20,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-09 08:24 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-09 08:34 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -33,9 +34,10 @@ h1{font-size:16px;margin:2px 0 8px}
 <span class="btn tool" data-tool="fib">🔢 フィボ</span>
 <span class="btn" id="undo">↶ 戻す</span>
 <span class="btn" id="clr">🗑 全消去</span>
+<span class="btn" id="smcBtn">🧠 SMC</span>
 </div>
 <div id="hint"></div>
-<div id="chart" style="position:relative"><canvas id="draw"></canvas></div>
+<div id="chart" style="position:relative"><canvas id="ind"></canvas><canvas id="draw"></canvas></div>
 <div id="feed"></div>
 <script>
 const MARKS = [{"sym": "LABUSDT", "ts": 1783167121, "kind": "覚醒", "msg": "⚡覚醒モード LAB 突入12:10UTC (dump86/pump7)"}, {"sym": "LABUSDT", "ts": 1783183921, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LABUSDT", "ts": 1783212121, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LABUSDT", "ts": 1783224721, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-3.3M$ (名簿入り仮説の観察対象)"}, {"sym": "LABUSDT", "ts": 1783296121, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-8.4M$ (名簿入り仮説の観察対象)"}, {"sym": "LITUSDT", "ts": 1783311122, "kind": "覚醒候補", "msg": "👀覚醒候補 LIT CEX大量出金-0.9M$ (名簿入り仮説の観察対象)"}, {"sym": "LABUSDT", "ts": 1783382522, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-9.4M$ (名簿入り仮説の観察対象)"}, {"sym": "USUSDT", "ts": 1783384322, "kind": "迎撃", "msg": "🚨使徒迎撃 US Lv2 開始00:30UTC"}, {"sym": "USUSDT", "ts": 1783384322, "kind": "反転", "msg": "🚨反転クラスタ点火 US 材料2個"}, {"sym": "USUSDT", "ts": 1783385522, "kind": "迎撃", "msg": "🚨使徒迎撃 US Lv2 開始00:50UTC"}, {"sym": "EVAAUSDT", "ts": 1783462321, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始22:10UTC"}, {"sym": "EVAAUSDT", "ts": 1783462321, "kind": "反転", "msg": "🚨反転クラスタ点火 EVAA 材料2個"}, {"sym": "LABUSDT", "ts": 1783473721, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LDOUSDT", "ts": 1783480921, "kind": "覚醒候補", "msg": "👀覚醒候補 LDO CEX大量出金-1.0M$ (名簿入り仮説の観察対象)"}, {"sym": "EVAAUSDT", "ts": 1783491122, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始06:10UTC"}, {"sym": "EVAAUSDT", "ts": 1783491122, "kind": "反転", "msg": "🚨反転クラスタ点火 EVAA 材料2個"}, {"sym": "EVAAUSDT", "ts": 1783492922, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始06:40UTC"}, {"sym": "EVAAUSDT", "ts": 1783494122, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始07:00UTC"}, {"sym": "EVAAUSDT", "ts": 1783507921, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv3 開始10:50UTC"}, {"sym": "EVAAUSDT", "ts": 1783513321, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始12:20UTC"}, {"sym": "EVAAUSDT", "ts": 1783519921, "kind": "暴走", "msg": "🔥暴走相当 EVAA 両翼(ランプ+OI減)×反転点火!"}, {"sym": "EVAAUSDT", "ts": 1783519921, "kind": "支え崩れ", "msg": "🟢支え崩れ EVAA 下げ本番の合図"}, {"sym": "EVAAUSDT", "ts": 1783520521, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始14:20UTC"}, {"sym": "SYNUSDT", "ts": 1783521121, "kind": "覚醒候補", "msg": "👀覚醒候補 SYN CEX大量出金-1.0M$ (名簿入り仮説の観察対象)"}, {"sym": "EVAAUSDT", "ts": 1783528350, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始16:30UTC"}, {"sym": "EVAAUSDT", "ts": 1783546322, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始21:30UTC"}];
@@ -101,6 +103,86 @@ function bollinger(closes, times, period=20, mult=2){
   }
   return {mid, up, lo};
 }
+// ---- SMC Toolkit (RSI反転/EMA75-200/レガシー/スイング/FVG/一目基準線/ALMA) ----
+const emaFast = chart.addLineSeries({color:'#26a69a', lineWidth:1, priceLineVisible:false, lastValueVisible:false});
+const emaSlow = chart.addLineSeries({color:'#ffa726', lineWidth:1, priceLineVisible:false, lastValueVisible:false});
+const kijun   = chart.addLineSeries({lineWidth:2, priceLineVisible:false, lastValueVisible:false});
+const almaL   = chart.addLineSeries({color:'rgba(150,150,150,0.35)', lineWidth:1, priceLineVisible:false, lastValueVisible:false});
+const legacyL = chart.addLineSeries({color:'#ffeb3b', lineWidth:2, priceScaleId:'legacyScale', priceLineVisible:false, lastValueVisible:false});
+chart.priceScale('legacyScale').applyOptions({scaleMargins:{top:0.85, bottom:0}});
+let smcOn = true, curKl = null, radarMarkers = [], smcMarkers = [], fvgList = [];
+const ic = document.getElementById('ind'), ictx = ic.getContext('2d');
+
+function ema(a,p){const k=2/(p+1);const o=[];let e=null;for(const v of a){e=e==null?v:v*k+e*(1-k);o.push(e);}return o;}
+function donch(h,l,len){const o=Array(h.length).fill(null);for(let i=len-1;i<h.length;i++){let hh=-1e18,ll=1e18;for(let j=i-len+1;j<=i;j++){hh=Math.max(hh,h[j]);ll=Math.min(ll,l[j]);}o[i]=(hh+ll)/2;}return o;}
+function rsiCalc(c,p){const o=Array(c.length).fill(null);if(c.length<=p)return o;let g=0,l=0;for(let i=1;i<=p;i++){const ch=c[i]-c[i-1];g+=Math.max(ch,0);l+=Math.max(-ch,0);}g/=p;l/=p;o[p]=l===0?100:100-100/(1+g/l);for(let i=p+1;i<c.length;i++){const ch=c[i]-c[i-1];g=(g*(p-1)+Math.max(ch,0))/p;l=(l*(p-1)+Math.max(-ch,0))/p;o[i]=l===0?100:100-100/(1+g/l);}return o;}
+function stochK(c,h,l,p){const o=Array(c.length).fill(null);for(let i=p-1;i<c.length;i++){let hh=-1e18,ll=1e18;for(let j=i-p+1;j<=i;j++){hh=Math.max(hh,h[j]);ll=Math.min(ll,l[j]);}o[i]=hh===ll?0:100*(c[i]-ll)/(hh-ll);}return o;}
+function sma3(a){const o=Array(a.length).fill(null);for(let i=2;i<a.length;i++){if(a[i]==null||a[i-1]==null||a[i-2]==null)continue;o[i]=(a[i]+a[i-1]+a[i-2])/3;}return o;}
+function macdSignal(c){const e12=ema(c,12),e26=ema(c,26);const m=c.map((_,i)=>e12[i]-e26[i]);return ema(m,9);}
+function almaCalc(a,win,off,sig){const o=Array(a.length).fill(null);const m=off*(win-1),s=win/sig;const w=[];let norm=0;for(let i=0;i<win;i++){const x=Math.exp(-((i-m)**2)/(2*s*s));w.push(x);norm+=x;}for(let i=win-1;i<a.length;i++){let sum=0,ok=true;for(let j=0;j<win;j++){const v=a[i-(win-1)+j];if(v==null){ok=false;break;}sum+=v*w[j];}o[i]=ok?sum/norm:null;}return o;}
+
+function setAllMarkers(){
+  candles.setMarkers([...radarMarkers, ...smcMarkers].sort((a,b)=>a.time-b.time));
+}
+function sizeInd(){ ic.width=el.clientWidth; ic.height=el.clientHeight; ic.style.width=el.clientWidth+'px'; ic.style.height=el.clientHeight+'px'; }
+function redrawInd(){
+  sizeInd(); ictx.clearRect(0,0,ic.width,ic.height);
+  if(!smcOn) return;
+  for(const f of fvgList){
+    const x1=chart.timeScale().timeToCoordinate(f.t1), x2=chart.timeScale().timeToCoordinate(f.t2);
+    const yt=candles.priceToCoordinate(f.top), yb=candles.priceToCoordinate(f.bot);
+    if(x1==null||x2==null||yt==null||yb==null) continue;
+    ictx.fillStyle='rgba(255,235,59,0.16)';
+    ictx.fillRect(x1, Math.min(yt,yb), Math.max(2,x2-x1), Math.abs(yb-yt));
+  }
+}
+function applySMC(){
+  const vis = !!(smcOn && curKl);
+  [emaFast,emaSlow,kijun,almaL,legacyL].forEach(s=>s.applyOptions({visible:vis}));
+  smcMarkers=[]; fvgList=[];
+  if(!vis){ setAllMarkers(); redrawInd(); return; }
+  try{
+    const kl=curKl;
+    const t=kl.map(k=>k[0]/1000), h=kl.map(k=>+k[2]), l=kl.map(k=>+k[3]), c=kl.map(k=>+k[4]);
+    const ef=ema(c,75), es=ema(c,200);
+    emaFast.setData(t.map((tt,i)=>({time:tt,value:ef[i]})));
+    emaSlow.setData(t.map((tt,i)=>({time:tt,value:es[i]})));
+    const conv=donch(h,l,5), base=donch(h,l,34);
+    const kd=[]; for(let i=0;i<t.length;i++){ if(base[i]==null) continue;
+      const col=conv[i]>base[i]?'#2196f3':conv[i]<base[i]?'#ef5350':'#ffa726'; kd.push({time:t[i],value:base[i],color:col}); }
+    kijun.setData(kd);
+    almaL.setData(t.map((tt,i)=>({time:tt,value:almaCalc(base,34,0.85,6)[i]})).filter(p=>p.value!=null));
+    const dS=sma3(stochK(c,h,l,14)), mS=macdSignal(c);
+    const leg=[]; for(let i=0;i<t.length;i++){ if(dS[i]==null||mS[i]==null) continue; leg.push({time:t[i],value:(dS[i]+mS[i])/2}); }
+    legacyL.setData(leg);
+    // RSI反転 + レガシーフィルタ
+    const r=rsiCalc(c,14); let lastOver=null,lastUnder=null;
+    for(let i=0;i<c.length;i++){
+      const ov=r[i]!=null&&r[i]>70, un=r[i]!=null&&r[i]<30;
+      if(ov) lastOver=h[i]; if(un) lastUnder=l[i];
+      if(!ov&&lastOver!=null&&h[i]>lastOver) smcMarkers.push({time:t[i],position:'aboveBar',color:'#e74c3c',shape:'arrowDown',size:1});
+      if(!un&&lastUnder!=null&&l[i]<lastUnder) smcMarkers.push({time:t[i],position:'belowBar',color:'#2ecc71',shape:'arrowUp',size:1});
+      if(dS[i]!=null&&mS[i]!=null&&r[i]!=null){ const lv=(dS[i]+mS[i])/2;
+        if(lv>80&&r[i]>70) smcMarkers.push({time:t[i],position:'aboveBar',color:'#c0392b',shape:'arrowDown',size:1});
+        if(lv<20&&r[i]<30) smcMarkers.push({time:t[i],position:'belowBar',color:'#27ae60',shape:'arrowUp',size:1}); }
+    }
+    // スイング高安 (pivot 2/2)
+    for(let i=2;i<t.length-2;i++){
+      if(h[i]>h[i-1]&&h[i]>h[i-2]&&h[i]>h[i+1]&&h[i]>h[i+2]) smcMarkers.push({time:t[i],position:'aboveBar',color:'#e74c3c',shape:'circle',size:1});
+      if(l[i]<l[i-1]&&l[i]<l[i-2]&&l[i]<l[i+1]&&l[i]<l[i+2]) smcMarkers.push({time:t[i],position:'belowBar',color:'#2ecc71',shape:'circle',size:1});
+    }
+    // FVG (imbalance)
+    for(let i=2;i<t.length;i++){
+      if(l[i]>h[i-2]) fvgList.push({t1:t[i-1],t2:t[i],top:l[i],bot:h[i-2]});
+      if(h[i]<l[i-2]) fvgList.push({t1:t[i-1],t2:t[i],top:l[i-2],bot:h[i]});
+    }
+  }catch(e){ console.log('SMC error', e); }
+  setAllMarkers(); redrawInd();
+}
+document.getElementById('smcBtn').classList.add('on');
+document.getElementById('smcBtn').onclick = function(){ smcOn=!smcOn; this.classList.toggle('on',smcOn); applySMC(); };
+chart.timeScale().subscribeVisibleTimeRangeChange(redrawInd);
+new ResizeObserver(redrawInd).observe(el);
 new ResizeObserver(() => chart.applyOptions({width: el.clientWidth})).observe(el);
 
 async function load(){
@@ -120,13 +202,14 @@ async function load(){
   maSeries.forEach(m => m.s.setData(sma(closes, times, m.p)));
   // レーダー反応マーカー (バー時刻に丸めて重ね表示)
   const sec = IVSEC[iv], t0 = kl[0][0]/1000;
-  const ms = MARKS.filter(m => m.sym === sym && m.ts >= t0)
+  radarMarkers = MARKS.filter(m => m.sym === sym && m.ts >= t0)
     .map(m => {
       const s = STYLE[m.kind] || {color:'#aaa', shape:'circle', pos:'aboveBar'};
       return {time: Math.floor(m.ts/sec)*sec, position: s.pos, color: s.color,
               shape: s.shape, text: m.kind};
-    }).sort((a,b) => a.time - b.time);
-  candles.setMarkers(ms);
+    });
+  curKl = kl;
+  applySMC();
   document.getElementById('status').textContent = '● ' + new Date().toLocaleTimeString('ja-JP');
   if (typeof loadDrawings === 'function'){ loadDrawings(); resizeCanvas(); }
 }
