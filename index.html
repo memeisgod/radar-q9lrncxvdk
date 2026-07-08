@@ -1,0 +1,117 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<title>Dump-Radar Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+body{background:#0b0d13;color:#dfe4ea;font-family:'Segoe UI',Meiryo,sans-serif;margin:0;padding:12px}
+h1{font-size:16px;margin:2px 0 8px}
+.btn{display:inline-block;background:#181b25;border:1px solid #2a2f3f;color:#dfe4ea;
+     padding:5px 12px;margin:2px;border-radius:6px;cursor:pointer;font-size:13px;user-select:none}
+.btn.on{background:#f7931a;color:#000;font-weight:bold}
+#chart{margin-top:8px;border-radius:8px;overflow:hidden;border:1px solid #1c2030}
+.dim{color:#5b6272;font-size:11px}
+#feed{margin-top:10px;background:#12141c;border-radius:8px;padding:10px;font-size:13px;line-height:1.9}
+.feeditem{cursor:pointer;border-bottom:1px solid #1c2030;padding:2px 0}
+.feeditem:hover{background:#181b25}
+#status{font-size:12px;color:#2ecc71;margin-left:8px}
+</style></head><body>
+<h1>📡 Dump-Radar Dashboard
+  <span class="dim">マーク更新: 2026-07-08 16:02 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+<div id="syms"></div>
+<div>
+<span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
+<span class="btn iv on" data-iv="1h">1時間</span><span class="btn iv" data-iv="4h">4時間</span>
+</div>
+<div id="chart"></div>
+<div id="feed"></div>
+<script>
+const MARKS = [{"sym": "LABUSDT", "ts": 1783167121, "kind": "覚醒", "msg": "⚡覚醒モード LAB 突入12:10UTC (dump86/pump7)"}, {"sym": "LABUSDT", "ts": 1783183921, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LABUSDT", "ts": 1783212121, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LABUSDT", "ts": 1783224721, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-3.3M$ (名簿入り仮説の観察対象)"}, {"sym": "LABUSDT", "ts": 1783296121, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-8.4M$ (名簿入り仮説の観察対象)"}, {"sym": "LITUSDT", "ts": 1783311122, "kind": "覚醒候補", "msg": "👀覚醒候補 LIT CEX大量出金-0.9M$ (名簿入り仮説の観察対象)"}, {"sym": "LABUSDT", "ts": 1783382522, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-9.4M$ (名簿入り仮説の観察対象)"}, {"sym": "USUSDT", "ts": 1783384322, "kind": "迎撃", "msg": "🚨使徒迎撃 US Lv2 開始00:30UTC"}, {"sym": "USUSDT", "ts": 1783384322, "kind": "反転", "msg": "🚨反転クラスタ点火 US 材料2個"}, {"sym": "USUSDT", "ts": 1783385522, "kind": "迎撃", "msg": "🚨使徒迎撃 US Lv2 開始00:50UTC"}, {"sym": "EVAAUSDT", "ts": 1783462321, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始22:10UTC"}, {"sym": "EVAAUSDT", "ts": 1783462321, "kind": "反転", "msg": "🚨反転クラスタ点火 EVAA 材料2個"}, {"sym": "LABUSDT", "ts": 1783473721, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LDOUSDT", "ts": 1783480921, "kind": "覚醒候補", "msg": "👀覚醒候補 LDO CEX大量出金-1.0M$ (名簿入り仮説の観察対象)"}, {"sym": "EVAAUSDT", "ts": 1783491122, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始06:10UTC"}, {"sym": "EVAAUSDT", "ts": 1783491122, "kind": "反転", "msg": "🚨反転クラスタ点火 EVAA 材料2個"}, {"sym": "EVAAUSDT", "ts": 1783492922, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始06:40UTC"}, {"sym": "EVAAUSDT", "ts": 1783494122, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始07:00UTC"}];
+const SYMBOLS = ["EVAAUSDT", "LDOUSDT", "LABUSDT", "USUSDT", "LITUSDT"];
+const IVSEC = {'5m':300,'15m':900,'1h':3600,'4h':14400};
+const STYLE = {
+  '覚醒':     {color:'#f7931a', shape:'arrowUp',   pos:'belowBar'},
+  'BEAST':    {color:'#3498db', shape:'arrowUp',   pos:'belowBar'},
+  '覚醒候補':  {color:'#00bcd4', shape:'circle',    pos:'belowBar'},
+  '迎撃':     {color:'#e74c3c', shape:'arrowDown', pos:'aboveBar'},
+  '反転':     {color:'#e74c3c', shape:'arrowDown', pos:'aboveBar'},
+  '暴走':     {color:'#e91e63', shape:'arrowDown', pos:'aboveBar'},
+  '支え崩れ':  {color:'#2ecc71', shape:'arrowDown', pos:'aboveBar'},
+};
+let sym = SYMBOLS[0], iv = '1h';
+
+// ---- チャート ----
+const el = document.getElementById('chart');
+const chart = LightweightCharts.createChart(el, {
+  height: 520,
+  layout: {background:{color:'#12141c'}, textColor:'#8b93a1'},
+  grid: {vertLines:{color:'#1c2030'}, horzLines:{color:'#1c2030'}},
+  timeScale: {timeVisible:true, secondsVisible:false, borderColor:'#2a2f3f'},
+  rightPriceScale: {borderColor:'#2a2f3f'},
+  crosshair: {mode: LightweightCharts.CrosshairMode.Normal},
+  localization: {locale:'ja-JP'},
+});
+const candles = chart.addCandlestickSeries({
+  upColor:'#2ecc71', downColor:'#e74c3c', wickUpColor:'#2ecc71',
+  wickDownColor:'#e74c3c', borderVisible:false});
+const vol = chart.addHistogramSeries({priceFormat:{type:'volume'}, priceScaleId:'v'});
+chart.priceScale('v').applyOptions({scaleMargins:{top:0.82, bottom:0}});
+new ResizeObserver(() => chart.applyOptions({width: el.clientWidth})).observe(el);
+
+async function load(){
+  const urls = [`https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${iv}&limit=500`,
+                `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${iv}&limit=500`];
+  let kl = null;
+  for (const u of urls){
+    try { const r = await fetch(u); if (r.ok){ kl = await r.json(); break; } } catch(e){}
+  }
+  if (!kl){ document.getElementById('status').textContent = '● データ取得失敗 ' + sym; return; }
+  candles.setData(kl.map(k => ({time: k[0]/1000, open:+k[1], high:+k[2], low:+k[3], close:+k[4]})));
+  vol.setData(kl.map(k => ({time: k[0]/1000, value:+k[5],
+                            color: +k[4] >= +k[1] ? '#1e4d36' : '#57272c'})));
+  // レーダー反応マーカー (バー時刻に丸めて重ね表示)
+  const sec = IVSEC[iv], t0 = kl[0][0]/1000;
+  const ms = MARKS.filter(m => m.sym === sym && m.ts >= t0)
+    .map(m => {
+      const s = STYLE[m.kind] || {color:'#aaa', shape:'circle', pos:'aboveBar'};
+      return {time: Math.floor(m.ts/sec)*sec, position: s.pos, color: s.color,
+              shape: s.shape, text: m.kind};
+    }).sort((a,b) => a.time - b.time);
+  candles.setMarkers(ms);
+  document.getElementById('status').textContent = '● ' + new Date().toLocaleTimeString('ja-JP');
+}
+
+// ---- UI ----
+const symsDiv = document.getElementById('syms');
+SYMBOLS.forEach(s => {
+  const b = document.createElement('span');
+  const n = MARKS.filter(m => m.sym === s).length;
+  b.className = 'btn sym' + (s === sym ? ' on' : '');
+  b.textContent = s.replace('USDT','') + (n ? ` (${n})` : '');
+  b.dataset.sym = s;
+  b.onclick = () => { sym = s; sel('.sym', b); load(); };
+  symsDiv.appendChild(b);
+});
+document.querySelectorAll('.iv').forEach(b =>
+  b.onclick = () => { iv = b.dataset.iv; sel('.iv', b); load(); });
+function sel(cls, el2){ document.querySelectorAll(cls).forEach(x => x.classList.remove('on')); el2.classList.add('on'); }
+
+// 反応フィード (クリックでその銘柄へ)
+document.getElementById('feed').innerHTML = '<b>レーダー反応履歴 (直近14日・JST)</b><br>' +
+  MARKS.slice().sort((a,b) => b.ts - a.ts).map(m => {
+    const d = new Date(m.ts*1000);
+    const t = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const c = (STYLE[m.kind]||{color:'#aaa'}).color;
+    return `<div class="feeditem" onclick="jump('${m.sym}')">` +
+           `<span style="color:${c}">■</span> ${t} ${m.msg}</div>`;
+  }).join('');
+function jump(s){
+  sym = s;
+  document.querySelectorAll('.sym').forEach(x =>
+    x.classList.toggle('on', x.dataset.sym === s));
+  load();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+load();
+setInterval(load, 60000);
+</script></body></html>
