@@ -9,6 +9,8 @@ h1{font-size:16px;margin:2px 0 8px}
      padding:5px 12px;margin:2px;border-radius:6px;cursor:pointer;font-size:13px;user-select:none}
 .btn.on{background:#f7931a;color:#000;font-weight:bold}
 #chart{margin-top:8px;border-radius:8px;overflow:hidden;border:1px solid #1c2030}
+#draw{position:absolute;top:0;left:0;z-index:5;pointer-events:none}
+#draw.active{pointer-events:auto;cursor:crosshair}
 .dim{color:#5b6272;font-size:11px}
 #feed{margin-top:10px;background:#12141c;border-radius:8px;padding:10px;font-size:13px;line-height:1.9}
 .feeditem{cursor:pointer;border-bottom:1px solid #1c2030;padding:2px 0}
@@ -16,13 +18,21 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-08 21:22 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-08 23:02 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
 <span class="btn iv on" data-iv="1h">1時間</span><span class="btn iv" data-iv="4h">4時間</span>
 </div>
-<div id="chart"></div>
+<div>
+<span class="btn tool on" data-tool="cursor">🖱 カーソル</span>
+<span class="btn tool" data-tool="trend">📈 トレンド</span>
+<span class="btn tool" data-tool="hline">➖ 水平線</span>
+<span class="btn tool" data-tool="fib">🔢 フィボ</span>
+<span class="btn" id="undo">↶ 戻す</span>
+<span class="btn" id="clr">🗑 全消去</span>
+</div>
+<div id="chart" style="position:relative"><canvas id="draw"></canvas></div>
 <div id="feed"></div>
 <script>
 const MARKS = [{"sym": "LABUSDT", "ts": 1783167121, "kind": "覚醒", "msg": "⚡覚醒モード LAB 突入12:10UTC (dump86/pump7)"}, {"sym": "LABUSDT", "ts": 1783183921, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LABUSDT", "ts": 1783212121, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LABUSDT", "ts": 1783224721, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-3.3M$ (名簿入り仮説の観察対象)"}, {"sym": "LABUSDT", "ts": 1783296121, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-8.4M$ (名簿入り仮説の観察対象)"}, {"sym": "LITUSDT", "ts": 1783311122, "kind": "覚醒候補", "msg": "👀覚醒候補 LIT CEX大量出金-0.9M$ (名簿入り仮説の観察対象)"}, {"sym": "LABUSDT", "ts": 1783382522, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-9.4M$ (名簿入り仮説の観察対象)"}, {"sym": "USUSDT", "ts": 1783384322, "kind": "迎撃", "msg": "🚨使徒迎撃 US Lv2 開始00:30UTC"}, {"sym": "USUSDT", "ts": 1783384322, "kind": "反転", "msg": "🚨反転クラスタ点火 US 材料2個"}, {"sym": "USUSDT", "ts": 1783385522, "kind": "迎撃", "msg": "🚨使徒迎撃 US Lv2 開始00:50UTC"}, {"sym": "EVAAUSDT", "ts": 1783462321, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始22:10UTC"}, {"sym": "EVAAUSDT", "ts": 1783462321, "kind": "反転", "msg": "🚨反転クラスタ点火 EVAA 材料2個"}, {"sym": "LABUSDT", "ts": 1783473721, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LDOUSDT", "ts": 1783480921, "kind": "覚醒候補", "msg": "👀覚醒候補 LDO CEX大量出金-1.0M$ (名簿入り仮説の観察対象)"}, {"sym": "EVAAUSDT", "ts": 1783491122, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始06:10UTC"}, {"sym": "EVAAUSDT", "ts": 1783491122, "kind": "反転", "msg": "🚨反転クラスタ点火 EVAA 材料2個"}, {"sym": "EVAAUSDT", "ts": 1783492922, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始06:40UTC"}, {"sym": "EVAAUSDT", "ts": 1783494122, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始07:00UTC"}, {"sym": "EVAAUSDT", "ts": 1783507921, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv3 開始10:50UTC"}, {"sym": "EVAAUSDT", "ts": 1783513321, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始12:20UTC"}];
@@ -78,6 +88,7 @@ async function load(){
     }).sort((a,b) => a.time - b.time);
   candles.setMarkers(ms);
   document.getElementById('status').textContent = '● ' + new Date().toLocaleTimeString('ja-JP');
+  if (typeof loadDrawings === 'function'){ loadDrawings(); resizeCanvas(); }
 }
 
 // ---- UI ----
@@ -104,6 +115,92 @@ document.getElementById('feed').innerHTML = '<b>レーダー反応履歴 (直近
     return `<div class="feeditem" onclick="jump('${m.sym}')">` +
            `<span style="color:${c}">■</span> ${t} ${m.msg}</div>`;
   }).join('');
+// ---- 描画ツール (トレンド/水平線/フィボ、端末localStorageに銘柄×足別保存) ----
+let tool = 'cursor', drawings = {}, dragging = null;
+const dc = document.getElementById('draw'), dctx = dc.getContext('2d');
+const FIB = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+function dkey(){ return `draw_${sym}_${iv}`; }
+function loadDrawings(){ try { drawings = JSON.parse(localStorage.getItem(dkey())||'[]'); } catch(e){ drawings=[]; } if(!Array.isArray(drawings)) drawings=[]; }
+function saveDrawings(){ localStorage.setItem(dkey(), JSON.stringify(drawings)); }
+
+document.querySelectorAll('.tool').forEach(b => b.onclick = () => {
+  tool = b.dataset.tool; sel('.tool', b);
+  dc.classList.toggle('active', tool !== 'cursor');
+});
+document.getElementById('undo').onclick = () => { drawings.pop(); saveDrawings(); redraw(); };
+document.getElementById('clr').onclick = () => { if(confirm('この銘柄・足の描画を全消去?')){ drawings=[]; saveDrawings(); redraw(); } };
+
+// 価格/時間 ⇔ 画面座標 の変換 (スクロール/ズームに追従)
+function toXY(pt){
+  const x = chart.timeScale().timeToCoordinate(pt.t);
+  const y = candles.priceToCoordinate(pt.p);
+  return (x==null||y==null) ? null : {x, y};
+}
+function fromXY(x, y){
+  return {t: chart.timeScale().coordinateToTime(x), p: candles.coordinateToPrice(y)};
+}
+function resizeCanvas(){
+  dc.width = el.clientWidth; dc.height = el.clientHeight;
+  dc.style.width = el.clientWidth+'px'; dc.style.height = el.clientHeight+'px';
+  redraw();
+}
+function redraw(){
+  dctx.clearRect(0,0,dc.width,dc.height);
+  for(const d of drawings) paint(d);
+  if(dragging) paint(dragging);
+}
+function paint(d){
+  dctx.lineWidth = 1.5; dctx.strokeStyle = d.color || '#f7931a'; dctx.font='11px sans-serif';
+  if(d.type==='hline'){
+    const y = candles.priceToCoordinate(d.p); if(y==null) return;
+    dctx.beginPath(); dctx.moveTo(0,y); dctx.lineTo(dc.width,y); dctx.stroke();
+    dctx.fillStyle=d.color||'#f7931a'; dctx.fillText(d.p.toPrecision(6), 4, y-3);
+  } else if(d.type==='trend'){
+    const a=toXY(d.a), b=toXY(d.b); if(!a||!b) return;
+    dctx.beginPath(); dctx.moveTo(a.x,a.y); dctx.lineTo(b.x,b.y); dctx.stroke();
+  } else if(d.type==='fib'){
+    const a=toXY(d.a), b=toXY(d.b); if(!a||!b) return;
+    dctx.strokeStyle='#8b93a1'; dctx.beginPath(); dctx.moveTo(a.x,a.y); dctx.lineTo(a.x,b.y); dctx.stroke();
+    for(const f of FIB){
+      const p = d.a.p + (d.b.p - d.a.p)*f;
+      const y = candles.priceToCoordinate(p); if(y==null) continue;
+      dctx.strokeStyle = f===0||f===1 ? '#e74c3c' : '#f7931a';
+      dctx.beginPath(); dctx.moveTo(Math.min(a.x,b.x),y); dctx.lineTo(dc.width,y); dctx.stroke();
+      dctx.fillStyle='#aeb6c2'; dctx.fillText(`${(f*100).toFixed(1)}% ${p.toPrecision(6)}`, Math.min(a.x,b.x)+4, y-3);
+    }
+  }
+}
+function evtXY(e){
+  const r = dc.getBoundingClientRect();
+  const cx = (e.touches?e.touches[0].clientX:e.clientX) - r.left;
+  const cy = (e.touches?e.touches[0].clientY:e.clientY) - r.top;
+  return {cx, cy};
+}
+function startDraw(e){
+  if(tool==='cursor') return;
+  e.preventDefault();
+  const {cx,cy} = evtXY(e); const pt = fromXY(cx,cy);
+  if(pt.t==null||pt.p==null) return;
+  if(tool==='hline'){ drawings.push({type:'hline', p:pt.p, color:'#f7931a'}); saveDrawings(); redraw(); return; }
+  dragging = {type:tool, a:{t:pt.t,p:pt.p}, b:{t:pt.t,p:pt.p}, color:'#f7931a'};
+}
+function moveDraw(e){
+  if(!dragging) return; e.preventDefault();
+  const {cx,cy} = evtXY(e); const pt = fromXY(cx,cy);
+  if(pt.t!=null&&pt.p!=null){ dragging.b={t:pt.t,p:pt.p}; redraw(); }
+}
+function endDraw(e){
+  if(!dragging) return;
+  drawings.push(dragging); dragging=null; saveDrawings(); redraw();
+}
+dc.addEventListener('mousedown', startDraw); dc.addEventListener('mousemove', moveDraw);
+window.addEventListener('mouseup', endDraw);
+dc.addEventListener('touchstart', startDraw, {passive:false});
+dc.addEventListener('touchmove', moveDraw, {passive:false});
+dc.addEventListener('touchend', endDraw);
+chart.timeScale().subscribeVisibleTimeRangeChange(redraw);
+new ResizeObserver(resizeCanvas).observe(el);
+
 function jump(s){
   sym = s;
   document.querySelectorAll('.sym').forEach(x =>
