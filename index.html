@@ -21,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-10 01:31 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-10 01:34 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -248,7 +248,9 @@ async function load(fit){
   bbMid.setData(bb.mid); bbUp.setData(bb.up); bbLo.setData(bb.lo);
   maSeries.forEach(m => { m.s.setData(sma(closes, times, m.p)); m.s.applyOptions({visible:false}); });  // MA非表示 (2026-07-09)
   const rsiArr = rsiCalc(closes, 14);
-  rsiLine.setData(times.map((tt,i)=>({time:tt, value:rsiArr[i]})).filter(p=>p.value!=null));
+  // ローソクと本数を完全一致させる (null期間は時刻のみの空データ=ホワイトスペースで埋める)。
+  // 本数がずれると論理レンジ同期で時間軸がずれるため必須。
+  rsiLine.setData(times.map((tt,i)=> rsiArr[i]==null ? {time:tt} : {time:tt, value:rsiArr[i]}));
   syncScales(); setTimeout(syncScales, 80); setTimeout(syncScales, 300);   // 描画確定後に軸幅を再同期
   // レーダー反応マーカー (バー時刻に丸めて重ね表示)
   const sec = IVSEC[iv], t0 = kl[0][0]/1000;
