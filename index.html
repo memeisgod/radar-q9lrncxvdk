@@ -34,7 +34,7 @@ h1{font-size:16px;margin:2px 0 8px}
 h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 @media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-10 02:19 更新 / 価格ライブ</span></h1>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-10 02:27 更新 / 価格ライブ</span></h1>
 <div id="syms" class="bar"></div>
 <div class="row">
   <div class="bar" style="flex:1">
@@ -48,6 +48,7 @@ h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wra
   <span class="btn sm on" id="rsiBtn">📊 RSI</span>
   <span class="btn sm" id="drawBtn">✏️ 描画ツール</span>
 </div>
+<div id="advice">解析中…</div>
 <div id="toolbar">
   <span class="btn tool sm on" data-tool="cursor">🖱</span>
   <span class="btn tool sm" data-tool="trend">📈 レイ</span>
@@ -62,7 +63,6 @@ h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wra
   <span class="btn sm" id="clr">🗑 消去</span>
 </div>
 <div id="hint"></div>
-<div id="advice">解析中…</div>
 <div id="chart" style="position:relative"><canvas id="ind"></canvas><canvas id="draw"></canvas></div>
 <div id="rsiChart" style="position:relative"><canvas id="rsiZones"></canvas></div>
 <div id="feed"></div>
