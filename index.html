@@ -21,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-09 19:36 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-09 19:40 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -32,6 +32,7 @@ h1{font-size:16px;margin:2px 0 8px}
 <span class="btn tool" data-tool="trend">📈 レイ</span>
 <span class="btn tool" data-tool="hline">➖ 水平線</span>
 <span class="btn tool" data-tool="fib">🔢 フィボ</span>
+<span class="btn tool" data-tool="copy">📋 複写</span>
 <span class="btn" id="undo">↶ 戻す</span>
 <span class="btn" id="clr">🗑 全消去</span>
 <span class="btn" id="smcBtn">🧠 SMC</span>
@@ -239,26 +240,56 @@ document.getElementById('feed').innerHTML = '<b>レーダー反応履歴 (直近
            `<span style="color:${c}">■</span> ${t} ${m.msg}</div>`;
   }).join('');
 // ---- 描画ツール (タップ2点方式・iPhone最適化・端末localStorageに銘柄×足別保存) ----
-let tool = 'cursor', drawings = [], pending = null, hover = null;
+let tool = 'cursor', drawings = [], pending = null, hover = null, copyState = null;
 const dc = document.getElementById('draw'), dctx = dc.getContext('2d');
 const hintEl = document.getElementById('hint');
 const FIB = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-const LABELS = {trend:'レイ', hline:'水平線', fib:'フィボナッチ'};
+const LABELS = {trend:'レイ', hline:'水平線', fib:'フィボナッチ', copy:'複写'};
 function dkey(){ return `draw_${sym}_${iv}`; }
 function loadDrawings(){ try { drawings = JSON.parse(localStorage.getItem(dkey())||'[]'); } catch(e){ drawings=[]; } if(!Array.isArray(drawings)) drawings=[]; }
 function saveDrawings(){ localStorage.setItem(dkey(), JSON.stringify(drawings)); }
 function setHint(t){ hintEl.textContent = t || ''; }
 
 document.querySelectorAll('.tool').forEach(b => b.onclick = () => {
-  tool = b.dataset.tool; sel('.tool', b); pending = null;
+  tool = b.dataset.tool; sel('.tool', b); pending = null; copyState = null;
   dc.classList.toggle('active', tool !== 'cursor');
   if(tool==='cursor') setHint('');
   else if(tool==='hline') setHint('引きたい価格をタップ');
+  else if(tool==='copy') setHint('複写する線をタップ');
   else setHint(`${LABELS[tool]}: 1点目をタップ`);
   redraw();
 });
-document.getElementById('undo').onclick = () => { pending=null; drawings.pop(); saveDrawings(); redraw(); };
-document.getElementById('clr').onclick = () => { if(confirm('この銘柄・足の描画を全消去?')){ drawings=[]; pending=null; saveDrawings(); redraw(); } };
+document.getElementById('undo').onclick = () => { pending=null; copyState=null; drawings.pop(); saveDrawings(); redraw(); };
+document.getElementById('clr').onclick = () => { if(confirm('この銘柄・足の描画を全消去?')){ drawings=[]; pending=null; copyState=null; saveDrawings(); redraw(); } };
+
+// レイの延長端点を求める (距離計算・複写プレビュー用)
+function rayEnd(a, b){
+  let ex=b.x, ey=b.y, dx=b.x-a.x, dy=b.y-a.y;
+  if(dx!==0){ const tx = dx>0 ? dc.width : 0; const tt=(tx-a.x)/dx; ex=tx; ey=a.y+dy*tt; }
+  else if(dy!==0){ ey = dy>0 ? dc.height : 0; ex=a.x; }
+  return {x:ex, y:ey};
+}
+function segDist(px,py,x1,y1,x2,y2){
+  const dx=x2-x1, dy=y2-y1, L2=dx*dx+dy*dy;
+  let t = L2 ? ((px-x1)*dx+(py-y1)*dy)/L2 : 0; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(x1+t*dx), py-(y1+t*dy));
+}
+function distToDrawing(d, px, py){
+  if(d.type==='hline'){ const y=candles.priceToCoordinate(d.p); return y==null?null:Math.abs(py-y); }
+  if(d.type==='trend'){ const a=toXY(d.a), b=toXY(d.b); if(!a||!b) return null; const e=rayEnd(a,b); return segDist(px,py,a.x,a.y,e.x,e.y); }
+  if(d.type==='fib'){ const a=toXY(d.a), b=toXY(d.b); if(!a||!b) return null; let m=1e9;
+    for(const f of FIB){ const p=d.a.p+(d.b.p-d.a.p)*f; const y=candles.priceToCoordinate(p); if(y==null) continue; if(px>=Math.min(a.x,b.x)-6) m=Math.min(m,Math.abs(py-y)); } return m; }
+  return null;
+}
+function nearestDrawing(px, py){
+  let best=-1, bd=26;
+  for(let i=0;i<drawings.length;i++){ const dd=distToDrawing(drawings[i],px,py); if(dd!=null&&dd<bd){ bd=dd; best=i; } }
+  return best;
+}
+function translated(d, dt, dp){
+  if(d.type==='hline') return {type:'hline', p:d.p+dp, color:d.color};
+  return {type:d.type, a:{t:d.a.t+dt, p:d.a.p+dp}, b:{t:d.b.t+dt, p:d.b.p+dp}, color:d.color};
+}
 
 function toXY(pt){
   const x = chart.timeScale().timeToCoordinate(pt.t);
@@ -279,6 +310,10 @@ function redraw(){
     if(hover) paint({type:tool, a:pending, b:hover, color:'#f7931a', preview:true});
     const a = toXY(pending);
     if(a){ dctx.fillStyle='#f7931a'; dctx.beginPath(); dctx.arc(a.x,a.y,6,0,7); dctx.fill(); }
+  }
+  if(copyState && hover){                       // 複写プレビュー (元の線を平行移動)
+    const dt=hover.t-copyState.anchor.t, dp=hover.p-copyState.anchor.p;
+    paint({...translated(copyState.src, dt, dp), preview:true});
   }
 }
 function paint(d){
@@ -319,6 +354,19 @@ function onTap(e){
   e.preventDefault();
   const {cx,cy} = evtXY(e); const pt = fromXY(cx,cy);
   if(pt.t==null||pt.p==null) return;
+  if(tool==='copy'){
+    if(!copyState){
+      const idx = nearestDrawing(cx, cy);
+      if(idx<0){ setHint('線が見つかりません。線の上をタップ'); return; }
+      copyState = {src: JSON.parse(JSON.stringify(drawings[idx])), anchor:{t:pt.t, p:pt.p}};
+      setHint('複写: 置きたい位置をタップ'); redraw();
+    } else {
+      const dt=pt.t-copyState.anchor.t, dp=pt.p-copyState.anchor.p;
+      drawings.push(translated(copyState.src, dt, dp)); saveDrawings();
+      copyState=null; backToCursor();
+    }
+    return;
+  }
   if(tool==='hline'){
     drawings.push({type:'hline', p:pt.p, color:'#f7931a'}); saveDrawings();
     backToCursor(); return;
@@ -328,11 +376,11 @@ function onTap(e){
          pending=null; saveDrawings(); backToCursor(); }
 }
 function onHover(e){
-  if(!pending) return;
+  if(!pending && !copyState) return;
   const {cx,cy} = evtXY(e); hover = fromXY(cx,cy); redraw();
 }
 function backToCursor(){
-  tool='cursor'; hover=null;
+  tool='cursor'; hover=null; copyState=null;
   document.querySelectorAll('.tool').forEach(x => x.classList.toggle('on', x.dataset.tool==='cursor'));
   dc.classList.remove('active'); setHint(''); redraw();
 }
