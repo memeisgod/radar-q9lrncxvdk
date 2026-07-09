@@ -10,6 +10,10 @@ h1{font-size:16px;margin:2px 0 8px}
      -webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .btn.on{background:#f7931a;color:#000;font-weight:bold}
 #hint{font-size:12px;color:#f7931a;margin:4px 0;min-height:16px}
+#advice{background:#12141c;border:1px solid #1c2030;border-radius:8px;padding:10px 12px;margin:6px 0;font-size:13px;line-height:1.7}
+#advice .stance{font-size:15px;font-weight:bold}
+#advice ul{margin:4px 0 4px 0;padding-left:18px}
+#advice .nfa{color:#5b6272;font-size:11px}
 #chart{margin-top:8px;border-radius:8px;overflow:hidden;border:1px solid #1c2030}
 #ind{position:absolute;top:0;left:0;z-index:4;pointer-events:none}
 #draw{position:absolute;top:0;left:0;z-index:5;pointer-events:none}
@@ -21,7 +25,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-10 02:02 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-10 02:10 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -43,6 +47,7 @@ h1{font-size:16px;margin:2px 0 8px}
 <span class="btn" id="smcBtn">🧠 SMC</span>
 </div>
 <div id="hint"></div>
+<div id="advice">解析中…</div>
 <div id="chart" style="position:relative"><canvas id="ind"></canvas><canvas id="draw"></canvas></div>
 <div style="margin:4px 0"><span class="btn on" id="rsiBtn">📊 CAT RSI</span></div>
 <div id="rsiChart" style="position:relative"><canvas id="rsiZones"></canvas></div>
@@ -246,6 +251,78 @@ document.getElementById('rsiBtn').onclick = function(){
   if(rsiOn){ rsiChart.applyOptions({width: rsiEl.clientWidth}); paintRSIZones(); }
 };
 
+// ---- エントリー助言テキスト自動生成 (ライブ指標+レーダー反応+検証知見をルール合成。60秒毎更新) ----
+function composeAdvice(closes, rsiArr, bb){
+  try{
+    const n=closes.length, price=closes[n-1];
+    let rNow=null; for(let i=n-1;i>=0;i--){ if(rsiArr[i]!=null){ rNow=rsiArr[i]; break; } }
+    const ef=ema(closes,75), es=ema(closes,200);
+    const e75=ef[n-1], e200=es[n-1];
+    const up = e75>e200;                                   // EMAトレンドバイアス
+    const bbU=bb.up.length?bb.up[bb.up.length-1].value:null;
+    const bbL=bb.lo.length?bb.lo[bb.lo.length-1].value:null;
+    const pctb = (bbU!=null&&bbL!=null&&bbU>bbL) ? (price-bbL)/(bbU-bbL) : null;  // %b (0=下限,1=上限)
+    const nowSec=Date.now()/1000;
+    const recent = MARKS.filter(m=>m.sym===sym && nowSec-m.ts < 3*86400).map(m=>m.kind);
+    const has = k => recent.includes(k);
+
+    const reasons=[];
+    reasons.push(`トレンド: <b style="color:${up?'#2ecc71':'#e74c3c'}">${up?'上昇バイアス':'下降バイアス'}</b> (EMA75 ${up?'>':'<'} EMA200)`);
+    // RSI × CAT ゾーン
+    if(rNow!=null){
+      let z;
+      if(rNow>=RSI_RED[0]) z='🔴トレンド強度ゾーン (買われすぎではなく強さの確認)';
+      else if(rNow>=50) z='中立〜強気圏';
+      else if(rNow>=RSI_GREEN[0]) z='🟢需要サポートゾーン (押し目の支え)';
+      else z='⚠緑ゾーン割れ (押し目か下落か不明)';
+      reasons.push(`RSI ${rNow.toFixed(1)}: ${z}`);
+    }
+    if(pctb!=null){
+      const pos = pctb>=0.85?'上限付近 (過熱)':pctb<=0.15?'下限付近 (売られすぎ)':pctb>=0.55?'中央より上':pctb<=0.45?'中央より下':'中央';
+      reasons.push(`ボリンジャー: 価格は${pos} (%b=${(pctb*100).toFixed(0)}%)`);
+    }
+    if(recent.length) reasons.push(`直近3日のレーダー: ${[...new Set(recent)].join(' / ')}`);
+
+    // スタンス判定
+    let stance, color, entry, exit;
+    if(has('覚醒')){
+      stance='⚡ 覚醒銘柄 — 出口前提で'; color='#f7931a';
+      entry='仕込み＋急騰の本命。乗るなら押し目、ただしボラ極大。入金ランプ/反転が出たら即降り準備。';
+      exit='利確: 一撃を狙い広めトレーリング。半利確＋建値ストップで負けを消す(作者手法)。';
+    } else if(has('暴走')||has('使徒迎撃')||has('反転')||has('支え崩れ')){
+      stance='🔻 戻り売り目線 — 下げ本番の兆候'; color='#e74c3c';
+      entry='反発（戻り）を戻り売り。飛び乗りロングは避ける。';
+      exit='ショートは distribution系ほどDD浅め。+建値SLで守る。';
+    } else if(has('覚醒候補')){
+      stance='👀 仕込み観測中 — 急騰の芽'; color='#00bcd4';
+      entry='大口がCEXへ大量出金＝蓄積の可能性。BEAST点火(blowoff×急騰)を待って初動を。';
+      exit='点火したらロング、広めトレーリングで裾を残す。';
+    } else if(up && rNow!=null && rNow>=RSI_GREEN[0] && rNow<=55 && (pctb==null||pctb<=0.5)){
+      stance='🟢 押し目買いを探す'; color='#2ecc71';
+      entry=`上昇トレンド中の押し目。RSIが緑ゾーン(${RSI_GREEN[0]}-${RSI_GREEN[1]})で反発を確認して買い。緑ゾーンを下抜けたら見送り。`;
+      exit='利確は広めトレーリング推奨(検証: 固定TPは期待値薄・右裾を残すほど有利)。';
+    } else if(up && rNow!=null && rNow>=RSI_RED[0]){
+      stance='🟦 強いトレンド継続 — 押し目待ち'; color='#3498db';
+      entry='RSIが赤ゾーン突破＝上昇の強さの確認。買われすぎと逆張りせず、次の押し目を待つ。';
+      exit='トレンドフォロー、トレーリングで追随。';
+    } else if(!up && rNow!=null && rNow<RSI_GREEN[0]){
+      stance='⚪ 様子見 — 需要ゾーン割れ'; color='#8b93a1';
+      entry='RSIが緑ゾーン下。強い下落か押し目か判別困難。新規は控える。';
+      exit='—';
+    } else {
+      stance='⚪ 様子見'; color='#8b93a1';
+      entry='明確な優位性なし。レーダー反応かRSIゾーンでの反応を待つ。';
+      exit='—';
+    }
+    const html = `<div class="stance" style="color:${color}">${stance}</div>`
+      + `<div>${entry}</div>`
+      + `<ul>${reasons.map(r=>`<li>${r}</li>`).join('')}</ul>`
+      + (exit!=='—'?`<div>🎯 ${exit}</div>`:'')
+      + `<div class="nfa">${sym.replace('USDT','')} ${iv} / 自動生成(ルールベース) ${new Date().toLocaleTimeString('ja-JP')} ・ 投資助言ではありません(DYOR)</div>`;
+    document.getElementById('advice').innerHTML = html;
+  }catch(e){ document.getElementById('advice').textContent='解析エラー'; console.log('advice',e); }
+}
+
 async function load(fit){
   const urls = [`https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${iv}&limit=500`,
                 `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${iv}&limit=500`];
@@ -277,6 +354,7 @@ async function load(fit){
   curKl = kl;
   curTimes = times;
   applySMC();
+  composeAdvice(closes, rsiArr, bb);
   document.getElementById('status').textContent = '● ' + new Date().toLocaleTimeString('ja-JP');
   if (typeof loadDrawings === 'function'){ loadDrawings(); resizeCanvas(); }
   if (fit){ chart.priceScale('right').applyOptions({autoScale:true}); chart.timeScale().fitContent(); }
