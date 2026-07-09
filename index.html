@@ -21,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-10 00:48 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-10 00:53 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -140,37 +140,19 @@ function redrawInd(){
 }
 function applySMC(){
   const vis = !!(smcOn && curKl);
-  [emaFast,emaSlow,kijun,almaL].forEach(s=>s.applyOptions({visible:vis}));
-  legacyL.applyOptions({visible:false});  // レガシーライン非表示 (2026-07-09)
+  // 表示はレガシー確定サインとFVGのみ (2026-07-10)。他ラインは全て非表示。
+  [emaFast,emaSlow,kijun,almaL,legacyL].forEach(s=>s.applyOptions({visible:false}));
   smcMarkers=[]; fvgList=[];
   if(!vis){ setAllMarkers(); redrawInd(); return; }
   try{
     const kl=curKl;
     const t=kl.map(k=>k[0]/1000), h=kl.map(k=>+k[2]), l=kl.map(k=>+k[3]), c=kl.map(k=>+k[4]);
-    const ef=ema(c,75), es=ema(c,200);
-    emaFast.setData(t.map((tt,i)=>({time:tt,value:ef[i]})));
-    emaSlow.setData(t.map((tt,i)=>({time:tt,value:es[i]})));
-    const conv=donch(h,l,5), base=donch(h,l,34);
-    const kd=[]; for(let i=0;i<t.length;i++){ if(base[i]==null) continue;
-      const col=conv[i]>base[i]?'#2196f3':conv[i]<base[i]?'#ef5350':'#ffa726'; kd.push({time:t[i],value:base[i],color:col}); }
-    kijun.setData(kd);
-    almaL.setData(t.map((tt,i)=>({time:tt,value:almaCalc(base,34,0.85,6)[i]})).filter(p=>p.value!=null));
-    const dS=sma3(stochK(c,h,l,14)), mS=macdSignal(c);
-    // RSI反転 + レガシーフィルタ
-    const r=rsiCalc(c,14); let lastOver=null,lastUnder=null;
+    const dS=sma3(stochK(c,h,l,14)), mS=macdSignal(c), r=rsiCalc(c,14);
+    // レガシー確定サイン (レガシー>80&RSI>70=売り / <20&<30=買い) — SMCで最も希少
     for(let i=0;i<c.length;i++){
-      const ov=r[i]!=null&&r[i]>70, un=r[i]!=null&&r[i]<30;
-      if(ov) lastOver=h[i]; if(un) lastUnder=l[i];
-      if(!ov&&lastOver!=null&&h[i]>lastOver) smcMarkers.push({time:t[i],position:'aboveBar',color:'#e74c3c',shape:'arrowDown',size:1});
-      if(!un&&lastUnder!=null&&l[i]<lastUnder) smcMarkers.push({time:t[i],position:'belowBar',color:'#2ecc71',shape:'arrowUp',size:1});
       if(dS[i]!=null&&mS[i]!=null&&r[i]!=null){ const lv=(dS[i]+mS[i])/2;
-        if(lv>80&&r[i]>70) smcMarkers.push({time:t[i],position:'aboveBar',color:'#c0392b',shape:'arrowDown',size:1});
-        if(lv<20&&r[i]<30) smcMarkers.push({time:t[i],position:'belowBar',color:'#27ae60',shape:'arrowUp',size:1}); }
-    }
-    // スイング高安 (pivot 2/2)
-    for(let i=2;i<t.length-2;i++){
-      if(h[i]>h[i-1]&&h[i]>h[i-2]&&h[i]>h[i+1]&&h[i]>h[i+2]) smcMarkers.push({time:t[i],position:'aboveBar',color:'#e74c3c',shape:'circle',size:1});
-      if(l[i]<l[i-1]&&l[i]<l[i-2]&&l[i]<l[i+1]&&l[i]<l[i+2]) smcMarkers.push({time:t[i],position:'belowBar',color:'#2ecc71',shape:'circle',size:1});
+        if(lv>80&&r[i]>70) smcMarkers.push({time:t[i],position:'aboveBar',color:'#c0392b',shape:'arrowDown',size:2,text:'売'});
+        if(lv<20&&r[i]<30) smcMarkers.push({time:t[i],position:'belowBar',color:'#27ae60',shape:'arrowUp',size:2,text:'買'}); }
     }
     // FVG (imbalance)
     for(let i=2;i<t.length;i++){
