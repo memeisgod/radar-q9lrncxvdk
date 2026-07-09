@@ -21,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-10 01:19 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-10 01:23 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -33,6 +33,7 @@ h1{font-size:16px;margin:2px 0 8px}
 <span class="btn tool" data-tool="trend">📈 レイ</span>
 <span class="btn tool" data-tool="hline">➖ 水平線</span>
 <span class="btn tool" data-tool="fib">🔢 フィボ</span>
+<span class="btn tool" data-tool="move">✋ 移動</span>
 <span class="btn tool" data-tool="copy">📋 複写</span>
 <span class="btn on" id="magBtn">🧲 吸着</span>
 <span class="btn" id="okBtn" style="display:none;background:#1e6b3a;color:#fff">✓ 確定</span>
@@ -284,12 +285,12 @@ document.getElementById('feed').innerHTML = '<b>レーダー反応履歴 (直近
            `<span style="color:${c}">■</span> ${t} ${m.msg}</div>`;
   }).join('');
 // ---- 描画ツール (タップ2点方式・iPhone最適化・端末localStorageに銘柄×足別保存) ----
-let tool = 'cursor', drawings = [], hover = null, copyState = null, magnetOn = true;
+let tool = 'cursor', drawings = [], hover = null, copyState = null, moveState = null, magnetOn = true;
 let phase = null, draftA = null, draftB = null;   // 2点ツールの仮置き編集state
 const dc = document.getElementById('draw'), dctx = dc.getContext('2d');
 const hintEl = document.getElementById('hint');
 const FIB = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-const LABELS = {trend:'レイ', hline:'水平線', fib:'フィボナッチ', copy:'複写'};
+const LABELS = {trend:'レイ', hline:'水平線', fib:'フィボナッチ', copy:'複写', move:'移動'};
 function dkey(){ return `draw_${sym}_${iv}`; }
 function loadDrawings(){ try { drawings = JSON.parse(localStorage.getItem(dkey())||'[]'); } catch(e){ drawings=[]; } if(!Array.isArray(drawings)) drawings=[]; }
 function saveDrawings(){ localStorage.setItem(dkey(), JSON.stringify(drawings)); }
@@ -301,6 +302,7 @@ document.querySelectorAll('.tool').forEach(b => b.onclick = () => {
   if(tool==='cursor') setHint('');
   else if(tool==='hline') setHint('引きたい価格をタップ');
   else if(tool==='copy') setHint('複写する線をタップ');
+  else if(tool==='move') setHint('動かす線をタップ (端点付近=端点だけ移動)');
   else { phase='a'; setHint(`${LABELS[tool]}: 1点目をタップ`); }
   redraw();
 });
@@ -317,7 +319,7 @@ function showEditUI(){
   setHint('A/B点をタップで修正・ズームで拡大 → ✓確定');
 }
 function resetDraft(){
-  phase=null; draftA=null; draftB=null; hover=null; copyState=null;
+  phase=null; draftA=null; draftB=null; hover=null; copyState=null; moveState=null;
   document.getElementById('okBtn').style.display='none';
   document.getElementById('cancelBtn').style.display='none';
 }
@@ -391,6 +393,14 @@ function redraw(){
     const dt=hover.t-copyState.anchor.t, dp=hover.p-copyState.anchor.p;
     paint({...translated(copyState.src, dt, dp), preview:true});
   }
+  if(moveState && hover){                        // 移動プレビュー
+    const d=moveState.src; let prev;
+    if(moveState.mode==='hline') prev={...d, p:hover.p};
+    else if(moveState.mode==='A') prev={...d, a:{t:hover.t,p:hover.p}};
+    else if(moveState.mode==='B') prev={...d, b:{t:hover.t,p:hover.p}};
+    else { const dt=hover.t-moveState.anchor.t, dp=hover.p-moveState.anchor.p; prev=translated(d, dt, dp); }
+    paint({...prev, preview:true});
+  }
 }
 function paint(d){
   dctx.lineWidth = d.preview ? 1 : 1.8;
@@ -421,8 +431,29 @@ function paint(d){
 }
 // タップ処理 (キャンバスは描画専用=非ブロック。elでタップ検出し、ドラッグ/ピンチはチャートのズーム/パンに委ねる)
 function handleTap(cx, cy){
-  const pt = (tool==='copy') ? fromXY(cx,cy) : snapPoint(cx,cy);
+  const raw = fromXY(cx, cy);
+  const pt = (tool==='copy') ? raw : snapPoint(cx,cy);
   if(pt.t==null||pt.p==null) return;
+  if(tool==='move'){
+    if(!moveState){
+      const idx = nearestDrawing(cx, cy);
+      if(idx<0){ setHint('線が見つかりません。線の上をタップ'); return; }
+      const d = drawings[idx];
+      let mode = d.type==='hline' ? 'hline' : 'whole';
+      if(d.type!=='hline'){ if(nearPt(pt,d.a)) mode='A'; else if(nearPt(pt,d.b)) mode='B'; }
+      moveState = {idx, mode, anchor:{t:raw.t,p:raw.p}, src: JSON.parse(JSON.stringify(d))};
+      setHint(mode==='whole'?'移動: 置きたい位置をタップ':(mode==='hline'?'新しい価格をタップ':mode+'点の新しい位置をタップ'));
+      redraw();
+    } else {
+      const d=moveState.src, idx=moveState.idx;
+      if(moveState.mode==='hline') drawings[idx]={...d, p:pt.p};
+      else if(moveState.mode==='A') drawings[idx]={...d, a:{t:pt.t,p:pt.p}};
+      else if(moveState.mode==='B') drawings[idx]={...d, b:{t:pt.t,p:pt.p}};
+      else { const dt=raw.t-moveState.anchor.t, dp=raw.p-moveState.anchor.p; drawings[idx]=translated(d, dt, dp); }
+      saveDrawings(); backToCursor();
+    }
+    return;
+  }
   if(tool==='copy'){
     if(!copyState){
       const idx = nearestDrawing(cx, cy);
@@ -459,7 +490,7 @@ let pdX=0, pdY=0, pdT=0, pdMoved=false, pdId=null;
 el.addEventListener('pointerdown', e => { pdX=e.clientX; pdY=e.clientY; pdT=Date.now(); pdMoved=false; pdId=e.pointerId; });
 el.addEventListener('pointermove', e => {
   if(e.pointerId===pdId && Math.hypot(e.clientX-pdX, e.clientY-pdY)>10) pdMoved=true;
-  if(e.pointerType==='mouse' && tool!=='cursor' && (phase==='b'||phase==='moveA'||phase==='moveB'||copyState)){
+  if(e.pointerType==='mouse' && tool!=='cursor' && (phase==='b'||phase==='moveA'||phase==='moveB'||copyState||moveState)){
     const r=el.getBoundingClientRect();
     hover = (tool==='copy') ? fromXY(e.clientX-r.left, e.clientY-r.top) : snapPoint(e.clientX-r.left, e.clientY-r.top);
     redraw();
