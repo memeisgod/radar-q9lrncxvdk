@@ -21,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-10 01:17 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-10 01:19 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -198,11 +198,16 @@ function paintRSIZones(){
   band(RSI_RED[0],RSI_RED[1],'rgba(231,76,60,0.13)');
   band(RSI_GREEN[0],RSI_GREEN[1],'rgba(46,204,113,0.13)');
 }
-// 価格軸の幅をメインチャートに合わせる (桁数差による横ずれ防止)
+// 価格軸の幅を両チャートで揃える (桁数差による横ずれ防止)。広い方に合わせる。
 function syncScales(){
   try{
-    const w = chart.priceScale('right').width();
-    if(w>0){ rsiChart.priceScale('right').applyOptions({minimumWidth: w}); }
+    const w1 = chart.priceScale('right').width();
+    const w2 = rsiChart.priceScale('right').width();
+    const w = Math.max(w1||0, w2||0);
+    if(w>0){
+      chart.priceScale('right').applyOptions({minimumWidth: w});
+      rsiChart.priceScale('right').applyOptions({minimumWidth: w});
+    }
   }catch(e){}
   paintRSIZones();
 }
@@ -238,7 +243,7 @@ async function load(fit){
   maSeries.forEach(m => { m.s.setData(sma(closes, times, m.p)); m.s.applyOptions({visible:false}); });  // MA非表示 (2026-07-09)
   const rsiArr = rsiCalc(closes, 14);
   rsiLine.setData(times.map((tt,i)=>({time:tt, value:rsiArr[i]})).filter(p=>p.value!=null));
-  syncScales(); setTimeout(syncScales, 60);   // 描画確定後に軸幅を再同期
+  syncScales(); setTimeout(syncScales, 80); setTimeout(syncScales, 300);   // 描画確定後に軸幅を再同期
   // レーダー反応マーカー (バー時刻に丸めて重ね表示)
   const sec = IVSEC[iv], t0 = kl[0][0]/1000;
   radarMarkers = MARKS.filter(m => m.sym === sym && m.ts >= t0)
