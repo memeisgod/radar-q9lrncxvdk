@@ -13,6 +13,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #chart{margin-top:8px;border-radius:8px;overflow:hidden;border:1px solid #1c2030}
 #ind{position:absolute;top:0;left:0;z-index:4;pointer-events:none}
 #draw{position:absolute;top:0;left:0;z-index:5;pointer-events:none}
+#rsiZones{position:absolute;top:0;left:0;z-index:3;pointer-events:none}
 .dim{color:#5b6272;font-size:11px}
 #feed{margin-top:10px;background:#12141c;border-radius:8px;padding:10px;font-size:13px;line-height:1.9}
 .feeditem{cursor:pointer;border-bottom:1px solid #1c2030;padding:2px 0}
@@ -20,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-10 01:08 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-10 01:13 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -42,6 +43,8 @@ h1{font-size:16px;margin:2px 0 8px}
 </div>
 <div id="hint"></div>
 <div id="chart" style="position:relative"><canvas id="ind"></canvas><canvas id="draw"></canvas></div>
+<div style="margin:4px 0"><span class="btn on" id="rsiBtn">📊 CAT RSI</span></div>
+<div id="rsiChart" style="position:relative"><canvas id="rsiZones"></canvas></div>
 <div id="feed"></div>
 <script>
 const MARKS = [{"sym": "LABUSDT", "ts": 1783167121, "kind": "覚醒", "msg": "⚡覚醒モード LAB 突入12:10UTC (dump86/pump7)"}, {"sym": "LABUSDT", "ts": 1783183921, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LABUSDT", "ts": 1783212121, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LABUSDT", "ts": 1783224721, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-3.3M$ (名簿入り仮説の観察対象)"}, {"sym": "LABUSDT", "ts": 1783296121, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-8.4M$ (名簿入り仮説の観察対象)"}, {"sym": "LITUSDT", "ts": 1783311122, "kind": "覚醒候補", "msg": "👀覚醒候補 LIT CEX大量出金-0.9M$ (名簿入り仮説の観察対象)"}, {"sym": "LABUSDT", "ts": 1783382522, "kind": "覚醒候補", "msg": "👀覚醒候補 LAB CEX大量出金-9.4M$ (名簿入り仮説の観察対象)"}, {"sym": "USUSDT", "ts": 1783384322, "kind": "迎撃", "msg": "🚨使徒迎撃 US Lv2 開始00:30UTC"}, {"sym": "USUSDT", "ts": 1783384322, "kind": "反転", "msg": "🚨反転クラスタ点火 US 材料2個"}, {"sym": "USUSDT", "ts": 1783385522, "kind": "迎撃", "msg": "🚨使徒迎撃 US Lv2 開始00:50UTC"}, {"sym": "EVAAUSDT", "ts": 1783462321, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始22:10UTC"}, {"sym": "EVAAUSDT", "ts": 1783462321, "kind": "反転", "msg": "🚨反転クラスタ点火 EVAA 材料2個"}, {"sym": "LABUSDT", "ts": 1783473721, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}, {"sym": "LDOUSDT", "ts": 1783480921, "kind": "覚醒候補", "msg": "👀覚醒候補 LDO CEX大量出金-1.0M$ (名簿入り仮説の観察対象)"}, {"sym": "EVAAUSDT", "ts": 1783491122, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始06:10UTC"}, {"sym": "EVAAUSDT", "ts": 1783491122, "kind": "反転", "msg": "🚨反転クラスタ点火 EVAA 材料2個"}, {"sym": "EVAAUSDT", "ts": 1783492922, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始06:40UTC"}, {"sym": "EVAAUSDT", "ts": 1783494122, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始07:00UTC"}, {"sym": "EVAAUSDT", "ts": 1783507921, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv3 開始10:50UTC"}, {"sym": "EVAAUSDT", "ts": 1783513321, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始12:20UTC"}, {"sym": "EVAAUSDT", "ts": 1783519921, "kind": "暴走", "msg": "🔥暴走相当 EVAA 両翼(ランプ+OI減)×反転点火!"}, {"sym": "EVAAUSDT", "ts": 1783519921, "kind": "支え崩れ", "msg": "🟢支え崩れ EVAA 下げ本番の合図"}, {"sym": "EVAAUSDT", "ts": 1783520521, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始14:20UTC"}, {"sym": "SYNUSDT", "ts": 1783521121, "kind": "覚醒候補", "msg": "👀覚醒候補 SYN CEX大量出金-1.0M$ (名簿入り仮説の観察対象)"}, {"sym": "EVAAUSDT", "ts": 1783528350, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始16:30UTC"}, {"sym": "EVAAUSDT", "ts": 1783546322, "kind": "迎撃", "msg": "🚨使徒迎撃 EVAA Lv2 開始21:30UTC"}, {"sym": "LABUSDT", "ts": 1783555322, "kind": "支え崩れ", "msg": "🟢支え崩れ LAB 下げ本番の合図"}];
@@ -170,6 +173,45 @@ chart.timeScale().subscribeVisibleTimeRangeChange(redrawInd);
 new ResizeObserver(redrawInd).observe(el);
 new ResizeObserver(() => chart.applyOptions({width: el.clientWidth})).observe(el);
 
+// ---- CAT RSI パネル (標準RSI14 + 赤ゾーン=トレンド強度 / 緑ゾーン=需要サポート) ----
+// ※本家(CastAwayTrader)はソース非公開のため、ゾーン値は同社手法(Cardwellレンジ)に基づく再現値
+const RSI_RED = [70, 80];     // トレンド強度ゾーン (突破=上昇トレンド継続の確認)
+const RSI_GREEN = [40, 50];   // 需要サポートゾーン (下抜け=押し目でなく下落の疑い→回避)
+const rsiEl = document.getElementById('rsiChart');
+const rsiChart = LightweightCharts.createChart(rsiEl, {
+  height: 150,
+  layout: {background:{color:'#12141c'}, textColor:'#8b93a1'},
+  grid: {vertLines:{color:'#1c2030'}, horzLines:{color:'transparent'}},
+  timeScale: {timeVisible:true, secondsVisible:false, borderColor:'#2a2f3f'},
+  rightPriceScale: {borderColor:'#2a2f3f'},
+  crosshair: {mode: LightweightCharts.CrosshairMode.Normal},
+  localization: {locale:'ja-JP'},
+});
+const rsiLine = rsiChart.addLineSeries({color:'#ce93d8', lineWidth:2, priceLineVisible:false});
+[{v:80,c:'#e74c3c'},{v:70,c:'#e74c3c'},{v:50,c:'#556'},{v:50.001,c:'transparent'},{v:40,c:'#2ecc71'}]
+  .forEach(z => { if(z.c!=='transparent') rsiLine.createPriceLine({price:z.v, color:z.c, lineWidth:1, lineStyle:2, axisLabelVisible:true}); });
+const rz = document.getElementById('rsiZones'), rzc = rz.getContext('2d');
+function paintRSIZones(){
+  rz.width=rsiEl.clientWidth; rz.height=rsiEl.clientHeight; rzc.clearRect(0,0,rz.width,rz.height);
+  const band=(a,b,col)=>{ const ya=rsiLine.priceToCoordinate(a), yb=rsiLine.priceToCoordinate(b);
+    if(ya==null||yb==null) return; rzc.fillStyle=col; rzc.fillRect(0,Math.min(ya,yb),rz.width,Math.abs(ya-yb)); };
+  band(RSI_RED[0],RSI_RED[1],'rgba(231,76,60,0.13)');
+  band(RSI_GREEN[0],RSI_GREEN[1],'rgba(46,204,113,0.13)');
+}
+// 時間軸をメインチャートと双方向同期
+let rsiSyncing=false;
+function linkTime(a,b){ a.timeScale().subscribeVisibleLogicalRangeChange(r=>{
+  if(rsiSyncing||!r) return; rsiSyncing=true; try{ b.timeScale().setVisibleLogicalRange(r);}catch(e){} rsiSyncing=false; paintRSIZones(); }); }
+linkTime(chart, rsiChart); linkTime(rsiChart, chart);
+rsiChart.timeScale().subscribeVisibleTimeRangeChange(paintRSIZones);
+new ResizeObserver(()=>{ rsiChart.applyOptions({width: rsiEl.clientWidth}); paintRSIZones(); }).observe(rsiEl);
+let rsiOn = true;
+document.getElementById('rsiBtn').onclick = function(){
+  rsiOn=!rsiOn; this.classList.toggle('on',rsiOn);
+  rsiEl.style.display = rsiOn ? 'block' : 'none';
+  if(rsiOn){ rsiChart.applyOptions({width: rsiEl.clientWidth}); paintRSIZones(); }
+};
+
 async function load(fit){
   const urls = [`https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${iv}&limit=500`,
                 `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${iv}&limit=500`];
@@ -185,6 +227,9 @@ async function load(fit){
   const bb = bollinger(closes, times);
   bbMid.setData(bb.mid); bbUp.setData(bb.up); bbLo.setData(bb.lo);
   maSeries.forEach(m => { m.s.setData(sma(closes, times, m.p)); m.s.applyOptions({visible:false}); });  // MA非表示 (2026-07-09)
+  const rsiArr = rsiCalc(closes, 14);
+  rsiLine.setData(times.map((tt,i)=>({time:tt, value:rsiArr[i]})).filter(p=>p.value!=null));
+  paintRSIZones();
   // レーダー反応マーカー (バー時刻に丸めて重ね表示)
   const sec = IVSEC[iv], t0 = kl[0][0]/1000;
   radarMarkers = MARKS.filter(m => m.sym === sym && m.ts >= t0)
