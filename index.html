@@ -21,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-09 12:15 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-09 19:30 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -138,23 +138,19 @@ function redrawInd(){
 }
 function applySMC(){
   const vis = !!(smcOn && curKl);
-  [emaFast,emaSlow,kijun,almaL,legacyL].forEach(s=>s.applyOptions({visible:vis}));
+  [kijun,almaL].forEach(s=>s.applyOptions({visible:vis}));
+  [emaFast,emaSlow,legacyL].forEach(s=>s.applyOptions({visible:false}));  // レガシー/EMA非表示 (2026-07-09)
   smcMarkers=[]; fvgList=[];
   if(!vis){ setAllMarkers(); redrawInd(); return; }
   try{
     const kl=curKl;
     const t=kl.map(k=>k[0]/1000), h=kl.map(k=>+k[2]), l=kl.map(k=>+k[3]), c=kl.map(k=>+k[4]);
-    const ef=ema(c,75), es=ema(c,200);
-    emaFast.setData(t.map((tt,i)=>({time:tt,value:ef[i]})));
-    emaSlow.setData(t.map((tt,i)=>({time:tt,value:es[i]})));
     const conv=donch(h,l,5), base=donch(h,l,34);
     const kd=[]; for(let i=0;i<t.length;i++){ if(base[i]==null) continue;
       const col=conv[i]>base[i]?'#2196f3':conv[i]<base[i]?'#ef5350':'#ffa726'; kd.push({time:t[i],value:base[i],color:col}); }
     kijun.setData(kd);
     almaL.setData(t.map((tt,i)=>({time:tt,value:almaCalc(base,34,0.85,6)[i]})).filter(p=>p.value!=null));
     const dS=sma3(stochK(c,h,l,14)), mS=macdSignal(c);
-    const leg=[]; for(let i=0;i<t.length;i++){ if(dS[i]==null||mS[i]==null) continue; leg.push({time:t[i],value:(dS[i]+mS[i])/2}); }
-    legacyL.setData(leg);
     // RSI反転 + レガシーフィルタ
     const r=rsiCalc(c,14); let lastOver=null,lastUnder=null;
     for(let i=0;i<c.length;i++){
