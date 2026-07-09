@@ -21,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-09 19:31 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-09 19:32 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -29,7 +29,7 @@ h1{font-size:16px;margin:2px 0 8px}
 </div>
 <div>
 <span class="btn tool on" data-tool="cursor">🖱 カーソル</span>
-<span class="btn tool" data-tool="trend">📈 トレンド</span>
+<span class="btn tool" data-tool="trend">📈 レイ</span>
 <span class="btn tool" data-tool="hline">➖ 水平線</span>
 <span class="btn tool" data-tool="fib">🔢 フィボ</span>
 <span class="btn" id="undo">↶ 戻す</span>
@@ -242,7 +242,7 @@ let tool = 'cursor', drawings = [], pending = null, hover = null;
 const dc = document.getElementById('draw'), dctx = dc.getContext('2d');
 const hintEl = document.getElementById('hint');
 const FIB = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-const LABELS = {trend:'トレンドライン', hline:'水平線', fib:'フィボナッチ'};
+const LABELS = {trend:'レイ', hline:'水平線', fib:'フィボナッチ'};
 function dkey(){ return `draw_${sym}_${iv}`; }
 function loadDrawings(){ try { drawings = JSON.parse(localStorage.getItem(dkey())||'[]'); } catch(e){ drawings=[]; } if(!Array.isArray(drawings)) drawings=[]; }
 function saveDrawings(){ localStorage.setItem(dkey(), JSON.stringify(drawings)); }
@@ -290,7 +290,11 @@ function paint(d){
     dctx.fillStyle=d.color||'#f7931a'; dctx.fillText(d.p.toPrecision(6), 4, y-4);
   } else if(d.type==='trend'){
     const a=toXY(d.a), b=toXY(d.b); if(!a||!b){ dctx.setLineDash([]); return; }
-    dctx.beginPath(); dctx.moveTo(a.x,a.y); dctx.lineTo(b.x,b.y); dctx.stroke();
+    // レイ: 始点aから2点目bを通し、bの向きに画面端まで延長
+    let ex=b.x, ey=b.y, dx=b.x-a.x, dy=b.y-a.y;
+    if(dx!==0){ const tx = dx>0 ? dc.width : 0; const tt=(tx-a.x)/dx; ex=tx; ey=a.y+dy*tt; }
+    else if(dy!==0){ ey = dy>0 ? dc.height : 0; ex=a.x; }
+    dctx.beginPath(); dctx.moveTo(a.x,a.y); dctx.lineTo(ex,ey); dctx.stroke();
   } else if(d.type==='fib'){
     const a=toXY(d.a), b=toXY(d.b); if(!a||!b){ dctx.setLineDash([]); return; }
     for(const f of FIB){
