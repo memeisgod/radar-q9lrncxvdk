@@ -5,51 +5,65 @@
 <style>
 body{background:#0b0d13;color:#dfe4ea;font-family:'Segoe UI',Meiryo,sans-serif;margin:0;padding:12px}
 h1{font-size:16px;margin:2px 0 8px}
+*{box-sizing:border-box}
 .btn{display:inline-block;background:#181b25;border:1px solid #2a2f3f;color:#dfe4ea;
-     padding:9px 14px;margin:3px;border-radius:8px;cursor:pointer;font-size:14px;user-select:none;
-     -webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+     padding:8px 12px;margin:2px;border-radius:8px;cursor:pointer;font-size:13px;user-select:none;
+     -webkit-user-select:none;-webkit-tap-highlight-color:transparent;white-space:nowrap}
 .btn.on{background:#f7931a;color:#000;font-weight:bold}
-#hint{font-size:12px;color:#f7931a;margin:4px 0;min-height:16px}
-#advice{background:#12141c;border:1px solid #1c2030;border-radius:8px;padding:10px 12px;margin:6px 0;font-size:13px;line-height:1.7}
+.btn.sm{padding:6px 9px;font-size:12px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin:4px 0}
+.bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:2px;padding-bottom:2px}
+.bar::-webkit-scrollbar{height:0}
+.sep{flex:1}
+#toolbar{display:none;background:#0f1119;border:1px solid #1c2030;border-radius:8px;padding:4px 6px;margin:4px 0}
+#toolbar.open{display:flex;flex-wrap:wrap;align-items:center;gap:2px}
+#hint{font-size:12px;color:#f7931a;margin:2px 0;min-height:14px}
+#advice{background:#12141c;border:1px solid #1c2030;border-radius:8px;padding:10px 12px;margin:6px 0;font-size:13px;line-height:1.65}
 #advice .stance{font-size:15px;font-weight:bold}
-#advice ul{margin:4px 0 4px 0;padding-left:18px}
-#advice .nfa{color:#5b6272;font-size:11px}
-#chart{margin-top:8px;border-radius:8px;overflow:hidden;border:1px solid #1c2030}
+#advice ul{margin:4px 0;padding-left:18px}
+#advice .nfa{color:#5b6272;font-size:11px;margin-top:4px}
+#chart{margin-top:6px;border-radius:8px;overflow:hidden;border:1px solid #1c2030}
 #ind{position:absolute;top:0;left:0;z-index:4;pointer-events:none}
 #draw{position:absolute;top:0;left:0;z-index:5;pointer-events:none}
 #rsiZones{position:absolute;top:0;left:0;z-index:3;pointer-events:none}
 .dim{color:#5b6272;font-size:11px}
-#feed{margin-top:10px;background:#12141c;border-radius:8px;padding:10px;font-size:13px;line-height:1.9}
+#feed{margin-top:8px;background:#12141c;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.8;max-height:220px;overflow-y:auto}
 .feeditem{cursor:pointer;border-bottom:1px solid #1c2030;padding:2px 0}
 .feeditem:hover{background:#181b25}
-#status{font-size:12px;color:#2ecc71;margin-left:8px}
+#status{font-size:12px;color:#2ecc71;margin-left:6px}
+h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+@media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-10 02:10 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
-<div id="syms"></div>
-<div>
-<span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
-<span class="btn iv on" data-iv="1h">1時間</span><span class="btn iv" data-iv="4h">4時間</span>
-<span class="btn iv" data-iv="1d">日足</span>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-10 02:19 更新 / 価格ライブ</span></h1>
+<div id="syms" class="bar"></div>
+<div class="row">
+  <div class="bar" style="flex:1">
+    <span class="btn iv sm" data-iv="5m">5分</span><span class="btn iv sm" data-iv="15m">15分</span>
+    <span class="btn iv sm on" data-iv="1h">1時間</span><span class="btn iv sm" data-iv="4h">4時間</span>
+    <span class="btn iv sm" data-iv="1d">日足</span>
+  </div>
 </div>
-<div>
-<span class="btn tool on" data-tool="cursor">🖱 カーソル</span>
-<span class="btn tool" data-tool="trend">📈 レイ</span>
-<span class="btn tool" data-tool="hline">➖ 水平線</span>
-<span class="btn tool" data-tool="fib">🔢 フィボ</span>
-<span class="btn tool" data-tool="move">✋ 移動</span>
-<span class="btn tool" data-tool="copy">📋 複写</span>
-<span class="btn on" id="magBtn">🧲 吸着</span>
-<span class="btn" id="okBtn" style="display:none;background:#1e6b3a;color:#fff">✓ 確定</span>
-<span class="btn" id="cancelBtn" style="display:none;background:#6b1e1e;color:#fff">✕ 取消</span>
-<span class="btn" id="undo">↶ 戻す</span>
-<span class="btn" id="clr">🗑 全消去</span>
-<span class="btn" id="smcBtn">🧠 SMC</span>
+<div class="row">
+  <span class="btn sm on" id="smcBtn">🧠 SMC</span>
+  <span class="btn sm on" id="rsiBtn">📊 RSI</span>
+  <span class="btn sm" id="drawBtn">✏️ 描画ツール</span>
+</div>
+<div id="toolbar">
+  <span class="btn tool sm on" data-tool="cursor">🖱</span>
+  <span class="btn tool sm" data-tool="trend">📈 レイ</span>
+  <span class="btn tool sm" data-tool="hline">➖ 水平</span>
+  <span class="btn tool sm" data-tool="fib">🔢 フィボ</span>
+  <span class="btn tool sm" data-tool="move">✋ 移動</span>
+  <span class="btn tool sm" data-tool="copy">📋 複写</span>
+  <span class="btn sm on" id="magBtn">🧲 吸着</span>
+  <span class="btn sm" id="okBtn" style="display:none;background:#1e6b3a;color:#fff">✓ 確定</span>
+  <span class="btn sm" id="cancelBtn" style="display:none;background:#6b1e1e;color:#fff">✕ 取消</span>
+  <span class="btn sm" id="undo">↶ 戻す</span>
+  <span class="btn sm" id="clr">🗑 消去</span>
 </div>
 <div id="hint"></div>
 <div id="advice">解析中…</div>
 <div id="chart" style="position:relative"><canvas id="ind"></canvas><canvas id="draw"></canvas></div>
-<div style="margin:4px 0"><span class="btn on" id="rsiBtn">📊 CAT RSI</span></div>
 <div id="rsiChart" style="position:relative"><canvas id="rsiZones"></canvas></div>
 <div id="feed"></div>
 <script>
@@ -250,6 +264,14 @@ document.getElementById('rsiBtn').onclick = function(){
   rsiEl.style.display = rsiOn ? 'block' : 'none';
   if(rsiOn){ rsiChart.applyOptions({width: rsiEl.clientWidth}); paintRSIZones(); }
 };
+// 描画ツールバーの開閉 (普段は隠してスッキリ)
+document.getElementById('drawBtn').onclick = function(){
+  const tb=document.getElementById('toolbar');
+  const open=tb.classList.toggle('open');
+  this.classList.toggle('on', open);
+  if(!open) backToCursor();
+};
+let lastAdviceHour = -1;   // 助言は1時間毎(＋銘柄/足切替時)に更新
 
 // ---- エントリー助言テキスト自動生成 (ライブ指標+レーダー反応+検証知見をルール合成。60秒毎更新) ----
 function composeAdvice(closes, rsiArr, bb){
@@ -354,7 +376,8 @@ async function load(fit){
   curKl = kl;
   curTimes = times;
   applySMC();
-  composeAdvice(closes, rsiArr, bb);
+  const hr = new Date().getHours();
+  if(fit || hr!==lastAdviceHour){ composeAdvice(closes, rsiArr, bb); lastAdviceHour=hr; }
   document.getElementById('status').textContent = '● ' + new Date().toLocaleTimeString('ja-JP');
   if (typeof loadDrawings === 'function'){ loadDrawings(); resizeCanvas(); }
   if (fit){ chart.priceScale('right').applyOptions({autoScale:true}); chart.timeScale().fitContent(); }
