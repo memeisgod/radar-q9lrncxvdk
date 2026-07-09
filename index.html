@@ -21,7 +21,7 @@ h1{font-size:16px;margin:2px 0 8px}
 #status{font-size:12px;color:#2ecc71;margin-left:8px}
 </style></head><body>
 <h1>📡 Dump-Radar Dashboard
-  <span class="dim">マーク更新: 2026-07-09 19:32 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
+  <span class="dim">マーク更新: 2026-07-09 19:36 / ローソク足ライブ(60秒毎)</span><span id="status">●</span></h1>
 <div id="syms"></div>
 <div>
 <span class="btn iv" data-iv="5m">5分</span><span class="btn iv" data-iv="15m">15分</span>
@@ -184,7 +184,7 @@ chart.timeScale().subscribeVisibleTimeRangeChange(redrawInd);
 new ResizeObserver(redrawInd).observe(el);
 new ResizeObserver(() => chart.applyOptions({width: el.clientWidth})).observe(el);
 
-async function load(){
+async function load(fit){
   const urls = [`https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${iv}&limit=500`,
                 `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${iv}&limit=500`];
   let kl = null;
@@ -211,6 +211,7 @@ async function load(){
   applySMC();
   document.getElementById('status').textContent = '● ' + new Date().toLocaleTimeString('ja-JP');
   if (typeof loadDrawings === 'function'){ loadDrawings(); resizeCanvas(); }
+  if (fit){ chart.priceScale('right').applyOptions({autoScale:true}); chart.timeScale().fitContent(); }
 }
 
 // ---- UI ----
@@ -221,11 +222,11 @@ SYMBOLS.forEach(s => {
   b.className = 'btn sym' + (s === sym ? ' on' : '');
   b.textContent = s.replace('USDT','') + (n ? ` (${n})` : '');
   b.dataset.sym = s;
-  b.onclick = () => { sym = s; sel('.sym', b); load(); };
+  b.onclick = () => { sym = s; sel('.sym', b); load(true); };
   symsDiv.appendChild(b);
 });
 document.querySelectorAll('.iv').forEach(b =>
-  b.onclick = () => { iv = b.dataset.iv; sel('.iv', b); load(); });
+  b.onclick = () => { iv = b.dataset.iv; sel('.iv', b); load(true); });
 function sel(cls, el2){ document.querySelectorAll(cls).forEach(x => x.classList.remove('on')); el2.classList.add('on'); }
 
 // 反応フィード (クリックでその銘柄へ)
@@ -344,10 +345,10 @@ function jump(s){
   sym = s;
   document.querySelectorAll('.sym').forEach(x =>
     x.classList.toggle('on', x.dataset.sym === s));
-  load();
+  load(true);
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
-load();
-setInterval(load, 60000);
+load(true);
+setInterval(() => load(false), 60000);
 </script></body></html>
