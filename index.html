@@ -34,7 +34,7 @@ h1{font-size:16px;margin:2px 0 8px}
 h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 @media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-10 22:52 更新 / 価格ライブ</span></h1>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-11 00:55 更新 / 価格ライブ</span></h1>
 <div id="syms" class="bar"></div>
 <div class="row">
   <div class="bar" style="flex:1">
@@ -412,6 +412,10 @@ async function load(fit){
   candles.setData(kl.map(k => ({time: k[0]/1000, open:+k[1], high:+k[2], low:+k[3], close:+k[4]})));
   vol.setData(kl.map(k => ({time: k[0]/1000, value:+k[5],
                             color: +k[4] >= +k[1] ? '#1e4d36' : '#57272c'})));
+  // 価格の大きさに応じて小数桁を自動調整 (低価格銘柄が2桁だと潰れるため)
+  const lp = +kl[kl.length-1][4];
+  const prec = lp>=100 ? 2 : lp>=1 ? 4 : lp>=0.01 ? 6 : lp>=0.0001 ? 8 : 10;
+  candles.applyOptions({priceFormat:{type:'price', precision:prec, minMove:Math.pow(10,-prec)}});
   const closes = kl.map(k => +k[4]), times = kl.map(k => k[0]/1000);
   const bb = bollinger(closes, times);
   bbMid.setData(bb.mid); bbUp.setData(bb.up); bbLo.setData(bb.lo);
