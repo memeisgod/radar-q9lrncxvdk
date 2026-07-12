@@ -39,7 +39,7 @@ h1{font-size:16px;margin:2px 0 8px}
 h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 @media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 22:49 更新 / 価格ライブ</span></h1>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 22:57 更新 / 価格ライブ</span></h1>
 <div id="hotbar"></div>
 <div id="syms" class="bar"></div>
 <div class="row">
@@ -155,7 +155,7 @@ const kijun   = chart.addLineSeries({lineWidth:2, priceLineVisible:false, lastVa
 const almaL   = chart.addLineSeries({color:'rgba(150,150,150,0.35)', lineWidth:1, priceLineVisible:false, lastValueVisible:false});
 const legacyL = chart.addLineSeries({color:'#ffeb3b', lineWidth:2, priceScaleId:'legacyScale', priceLineVisible:false, lastValueVisible:false});
 chart.priceScale('legacyScale').applyOptions({scaleMargins:{top:0.85, bottom:0}});
-let smcOn = true, curKl = null, radarMarkers = [], smcMarkers = [], fvgList = [];
+let smcOn = true, curKl = null, radarMarkers = [], smcMarkers = [], fvgList = [], fundingList = [];
 const ic = document.getElementById('ind'), ictx = ic.getContext('2d');
 
 function ema(a,p){const k=2/(p+1);const o=[];let e=null;for(const v of a){e=e==null?v:v*k+e*(1-k);o.push(e);}return o;}
@@ -172,6 +172,26 @@ function setAllMarkers(){
 function sizeInd(){ ic.width=el.clientWidth; ic.height=el.clientHeight; ic.style.width=el.clientWidth+'px'; ic.style.height=el.clientHeight+'px'; }
 function redrawInd(){
   sizeInd(); ictx.clearRect(0,0,ic.width,ic.height);
+  // FR(資金調達率)ストリップ: チャート上端に時間ごとの色帯 (赤=正/ロング過熱, 緑=負/踏み上げ余地)
+  if(fundingList && fundingList.length && curTimes.length){
+    const sh=9, now=Date.now()/1000;
+    for(let i=0;i<fundingList.length;i++){
+      const t0=fundingList[i].fundingTime/1000;
+      const t1=(i+1<fundingList.length? fundingList[i+1].fundingTime/1000 : now);
+      const x0=toX(t0), x1=toX(t1); if(x0==null||x1==null) continue;
+      const fr=+fundingList[i].fundingRate;
+      const inten=Math.min(1, Math.abs(fr)/0.0007);   // ±0.07%で最大濃度
+      const col = fr>=0 ? 'rgba(231,76,60,'+(0.2+inten*0.7).toFixed(2)+')'
+                        : 'rgba(46,204,113,'+(0.2+inten*0.7).toFixed(2)+')';
+      ictx.fillStyle=col; ictx.fillRect(Math.min(x0,x1), 0, Math.max(1,Math.abs(x1-x0)), sh);
+    }
+    // 最新FR値を右端に表示
+    const last=fundingList[fundingList.length-1]; if(last){
+      const fr=(+last.fundingRate*100);
+      ictx.fillStyle = fr>=0?'#e74c3c':'#2ecc71'; ictx.font='11px sans-serif'; ictx.textAlign='right';
+      ictx.fillText('FR '+(fr>=0?'+':'')+fr.toFixed(4)+'%', ic.width-6, sh+12); ictx.textAlign='left';
+    }
+  }
   if(!smcOn) return;
   for(const f of fvgList){
     const x1=chart.timeScale().timeToCoordinate(f.t1), x2=chart.timeScale().timeToCoordinate(f.t2);
@@ -455,6 +475,11 @@ async function load(fit){
     });
   curKl = kl;
   curTimes = times;
+  // FR履歴を取得 (先物のみ・8h毎の資金調達率)
+  try{
+    const fr = await fetch(`https://fapi.binance.com/fapi/v1/fundingRate?symbol=${sym}&limit=500`);
+    fundingList = fr.ok ? await fr.json() : [];
+  }catch(e){ fundingList = []; }
   applySMC();
   const hr = new Date().getHours();
   if(fit || hr!==lastAdviceHour){ composeAdvice(closes, rsiArr, bb); lastAdviceHour=hr; }
