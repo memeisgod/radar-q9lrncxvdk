@@ -39,7 +39,7 @@ h1{font-size:16px;margin:2px 0 8px}
 h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 @media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 22:30 更新 / 価格ライブ</span></h1>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 22:37 更新 / 価格ライブ</span></h1>
 <div id="hotbar"></div>
 <div id="syms" class="bar"></div>
 <div class="row">
@@ -474,29 +474,39 @@ function heatOf(s){
   return {h, latest};
 }
 const symsDiv = document.getElementById('syms');
-let symHeat = SYMBOLS.map(s => ({s, ...heatOf(s)})).sort((a,b)=>b.h-a.h);
-const maxHeat = (symHeat[0] && symHeat[0].h) || 1;
-symHeat.forEach(o => {
+function addTab(s, label, styler){
   const b = document.createElement('span');
-  const inten = o.h / maxHeat;
-  const emo = o.latest ? (EMO[o.latest]||'') : '';
-  b.className = 'btn sym' + (o.s === sym ? ' on' : '');
-  b.dataset.sym = o.s;
-  b.innerHTML = (inten>0.6?'🔥':'') + emo + ' ' + o.s.replace('USDT','');
-  if(o.s !== sym && inten>0.12){
-    b.style.borderColor = 'rgba(247,147,26,'+(0.3+inten*0.7).toFixed(2)+')';
-    b.style.background = 'rgba(247,147,26,'+(inten*0.20).toFixed(2)+')';
-  }
-  b.onclick = () => { sym = o.s; sel('.sym', b); load(true); };
+  b.className = 'btn sym' + (s === sym ? ' on' : '');
+  b.dataset.sym = s;
+  b.innerHTML = label;
+  if(styler) styler(b);
+  b.onclick = () => { sym = s; sel('.sym', b); load(true); };
   symsDiv.appendChild(b);
-});
-// 上部「いま熱い」バナー: 熱量TOP3 (直近の強い反応がある銘柄)
-const hotbar = document.getElementById('hotbar');
-const top = symHeat.filter(o=>o.h>0.3).slice(0,4);
-hotbar.innerHTML = top.length
-  ? '🔥 いま熱い: ' + top.map(o=>`<span class="hot" data-jump="${o.s}">${EMO[o.latest]||''} ${o.s.replace('USDT','')}</span>`).join(' ')
-  : '<span class="dim">直近の強いレーダー反応なし</span>';
-hotbar.querySelectorAll('.hot').forEach(el => el.onclick = () => jump(el.dataset.jump));
+}
+try {
+  // 熱量ランキング版 (失敗してもcatchで普通のタブにフォールバック)
+  const symHeat = SYMBOLS.map(s => ({s, h:heatOf(s).h, latest:heatOf(s).latest})).sort((a,b)=>b.h-a.h);
+  const maxHeat = (symHeat[0] && symHeat[0].h) || 1;
+  symHeat.forEach(o => {
+    const inten = o.h / maxHeat;
+    const emo = o.latest ? (EMO[o.latest]||'') : '';
+    addTab(o.s, (inten>0.6?'🔥':'') + emo + ' ' + o.s.replace('USDT',''), b => {
+      if(o.s !== sym && inten>0.12){
+        b.style.borderColor = 'rgba(247,147,26,'+(0.3+inten*0.7).toFixed(2)+')';
+        b.style.background = 'rgba(247,147,26,'+(inten*0.20).toFixed(2)+')';
+      }
+    });
+  });
+  const hotbar = document.getElementById('hotbar');
+  const hot = symHeat.filter(o=>o.h>0.3).slice(0,4);
+  hotbar.innerHTML = hot.length
+    ? '🔥 いま熱い: ' + hot.map(o=>'<span class="hot" data-jump="'+o.s+'">'+(EMO[o.latest]||'')+' '+o.s.replace('USDT','')+'</span>').join(' ')
+    : '<span class="dim">直近の強いレーダー反応なし</span>';
+  hotbar.querySelectorAll('.hot').forEach(el => el.onclick = () => jump(el.dataset.jump));
+} catch(e) {
+  symsDiv.innerHTML = '';
+  SYMBOLS.forEach(s => addTab(s, s.replace('USDT','')));   // シンプル版フォールバック
+}
 // 各タブに 24h変化率をライブ表示 (movers も一目で)
 async function updateTickers(){
   try{
