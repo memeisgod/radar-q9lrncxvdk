@@ -37,7 +37,7 @@ h1{font-size:16px;margin:2px 0 8px}
 h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 @media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 21:44 更新 / 価格ライブ</span></h1>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 22:11 更新 / 価格ライブ</span></h1>
 <div id="hotbar"></div>
 <div id="syms" class="bar"></div>
 <div class="row">
@@ -90,6 +90,10 @@ let sym = SYMBOLS[0], iv = '1h';
 
 // ---- チャート ----
 const el = document.getElementById('chart');
+if(typeof LightweightCharts==='undefined'){
+  document.getElementById('advice').innerHTML='⚠ チャートライブラリの読み込みに失敗しました。通信環境を確認してページを再読み込みしてください。';
+  throw new Error('LightweightCharts CDN load failed');
+}
 const chart = LightweightCharts.createChart(el, {
   height: 520,
   layout: {background:{color:'#12141c'}, textColor:'#8b93a1'},
@@ -413,7 +417,11 @@ async function load(fit){
   for (const u of urls){
     try { const r = await fetch(u); if (r.ok){ kl = await r.json(); break; } } catch(e){}
   }
-  if (!kl){ document.getElementById('status').textContent = '● データ取得失敗 ' + sym; return; }
+  if (!Array.isArray(kl) || kl.length===0){
+    document.getElementById('status').textContent = '● 取得失敗 ' + sym + ' (別銘柄をタップ/自動再試行)';
+    document.getElementById('advice').innerHTML = '<span class="dim">'+sym.replace('USDT','')+' の価格データを取得できませんでした。銘柄タブを切り替えてください。</span>';
+    return;
+  }
   candles.setData(kl.map(k => ({time: k[0]/1000, open:+k[1], high:+k[2], low:+k[3], close:+k[4]})));
   vol.setData(kl.map(k => ({time: k[0]/1000, value:+k[5],
                             color: +k[4] >= +k[1] ? '#1e4d36' : '#57272c'})));
