@@ -31,10 +31,14 @@ h1{font-size:16px;margin:2px 0 8px}
 .feeditem{cursor:pointer;border-bottom:1px solid #1c2030;padding:2px 0}
 .feeditem:hover{background:#181b25}
 #status{font-size:12px;color:#2ecc71;margin-left:6px}
+#hotbar{font-size:13px;margin:4px 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#hotbar .hot{background:#1a1206;border:1px solid #f7931a;border-radius:14px;padding:3px 10px;cursor:pointer}
+.sym .chg{font-size:11px;opacity:.9}
 h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 @media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 19:42 更新 / 価格ライブ</span></h1>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 21:44 更新 / 価格ライブ</span></h1>
+<div id="hotbar"></div>
 <div id="syms" class="bar"></div>
 <div class="row">
   <div class="bar" style="flex:1">
@@ -444,17 +448,54 @@ async function load(fit){
   if (fit){ chart.priceScale('right').applyOptions({autoScale:true}); chart.timeScale().fitContent(); }
 }
 
-// ---- UI ----
+// ---- UI: 銘柄タブ = レーダー熱量でランキング+色付け+アイコン ----
+const SEV = {'覚醒':3,'暴走':3,'迎撃':2.5,'反転':2.5,'両翼':2,'覚醒候補':1.5,'支え崩れ':1.5,'BEAST':1};
+const EMO = {'覚醒':'⚡','暴走':'🔥','迎撃':'🚨','反転':'🚨','両翼':'🪽','覚醒候補':'👀','支え崩れ':'🟢','BEAST':'🟦'};
+function heatOf(s){
+  const now=Date.now()/1000; let h=0, lt=0, latest=null;
+  for(const m of MARKS){ if(m.sym!==s) continue;
+    const age=(now-m.ts)/3600; h += (SEV[m.kind]||1)*Math.exp(-age/8);   // 半減期≈約5.5h
+    if(m.ts>lt){ lt=m.ts; latest=m.kind; } }
+  return {h, latest};
+}
 const symsDiv = document.getElementById('syms');
-SYMBOLS.forEach(s => {
+let symHeat = SYMBOLS.map(s => ({s, ...heatOf(s)})).sort((a,b)=>b.h-a.h);
+const maxHeat = (symHeat[0] && symHeat[0].h) || 1;
+symHeat.forEach(o => {
   const b = document.createElement('span');
-  const n = MARKS.filter(m => m.sym === s).length;
-  b.className = 'btn sym' + (s === sym ? ' on' : '');
-  b.textContent = s.replace('USDT','') + (n ? ` (${n})` : '');
-  b.dataset.sym = s;
-  b.onclick = () => { sym = s; sel('.sym', b); load(true); };
+  const inten = o.h / maxHeat;
+  const emo = o.latest ? (EMO[o.latest]||'') : '';
+  b.className = 'btn sym' + (o.s === sym ? ' on' : '');
+  b.dataset.sym = o.s;
+  b.innerHTML = (inten>0.6?'🔥':'') + emo + ' ' + o.s.replace('USDT','');
+  if(o.s !== sym && inten>0.12){
+    b.style.borderColor = 'rgba(247,147,26,'+(0.3+inten*0.7).toFixed(2)+')';
+    b.style.background = 'rgba(247,147,26,'+(inten*0.20).toFixed(2)+')';
+  }
+  b.onclick = () => { sym = o.s; sel('.sym', b); load(true); };
   symsDiv.appendChild(b);
 });
+// 上部「いま熱い」バナー: 熱量TOP3 (直近の強い反応がある銘柄)
+const hotbar = document.getElementById('hotbar');
+const top = symHeat.filter(o=>o.h>0.3).slice(0,4);
+hotbar.innerHTML = top.length
+  ? '🔥 いま熱い: ' + top.map(o=>`<span class="hot" data-jump="${o.s}">${EMO[o.latest]||''} ${o.s.replace('USDT','')}</span>`).join(' ')
+  : '<span class="dim">直近の強いレーダー反応なし</span>';
+hotbar.querySelectorAll('.hot').forEach(el => el.onclick = () => jump(el.dataset.jump));
+// 各タブに 24h変化率をライブ表示 (movers も一目で)
+async function updateTickers(){
+  try{
+    const r = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
+    if(!r.ok) return; const all = await r.json(); const m={};
+    for(const t of all) m[t.symbol]=+t.priceChangePercent;
+    document.querySelectorAll('.sym').forEach(b => {
+      const ch=m[b.dataset.sym]; if(ch==null) return;
+      let sp=b.querySelector('.chg'); if(!sp){ sp=document.createElement('span'); sp.className='chg'; b.appendChild(sp); }
+      sp.textContent=' '+(ch>=0?'+':'')+ch.toFixed(1)+'%'; sp.style.color=ch>=0?'#2ecc71':'#e74c3c';
+    });
+  }catch(e){}
+}
+updateTickers(); setInterval(updateTickers, 60000);
 document.querySelectorAll('.iv').forEach(b =>
   b.onclick = () => { iv = b.dataset.iv; sel('.iv', b); load(true); });
 function sel(cls, el2){ document.querySelectorAll(cls).forEach(x => x.classList.remove('on')); el2.classList.add('on'); }
