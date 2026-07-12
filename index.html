@@ -39,7 +39,7 @@ h1{font-size:16px;margin:2px 0 8px}
 h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 @media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 22:37 更新 / 価格ライブ</span></h1>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-12 22:49 更新 / 価格ライブ</span></h1>
 <div id="hotbar"></div>
 <div id="syms" class="bar"></div>
 <div class="row">
@@ -483,30 +483,43 @@ function addTab(s, label, styler){
   b.onclick = () => { sym = s; sel('.sym', b); load(true); };
   symsDiv.appendChild(b);
 }
-try {
-  // 熱量ランキング版 (失敗してもcatchで普通のタブにフォールバック)
-  const symHeat = SYMBOLS.map(s => ({s, h:heatOf(s).h, latest:heatOf(s).latest})).sort((a,b)=>b.h-a.h);
-  const maxHeat = (symHeat[0] && symHeat[0].h) || 1;
-  symHeat.forEach(o => {
-    const inten = o.h / maxHeat;
-    const emo = o.latest ? (EMO[o.latest]||'') : '';
-    addTab(o.s, (inten>0.6?'🔥':'') + emo + ' ' + o.s.replace('USDT',''), b => {
-      if(o.s !== sym && inten>0.12){
-        b.style.borderColor = 'rgba(247,147,26,'+(0.3+inten*0.7).toFixed(2)+')';
-        b.style.background = 'rgba(247,147,26,'+(inten*0.20).toFixed(2)+')';
-      }
+// 本家の危険度(dump_score)でランキング (本家 /radar をライブ取得=CORS許可済み)
+function tierColor(d){ return d>=70?'#e74c3c':d>=45?'#f7931a':d>=25?'#f1c40f':'#5b6272'; }
+function tierMark(d){ return d>=70?'🔴':d>=45?'🟠':d>=25?'🟡':'⚪'; }
+function rebuildTabs(list){
+  const keep = sym;
+  symsDiv.innerHTML='';
+  list.forEach(o => {
+    const emo = o.emoji || '';
+    const sc = (o.score!=null) ? ' <b>'+o.score+'</b>' : '';
+    addTab(o.s, (o.score!=null?tierMark(o.score):'') + emo + ' ' + o.s.replace('USDT','') + sc, b => {
+      if(o.score!=null && o.score>=25 && o.s!==keep){ b.style.borderColor = tierColor(o.score); }
     });
   });
-  const hotbar = document.getElementById('hotbar');
-  const hot = symHeat.filter(o=>o.h>0.3).slice(0,4);
-  hotbar.innerHTML = hot.length
-    ? '🔥 いま熱い: ' + hot.map(o=>'<span class="hot" data-jump="'+o.s+'">'+(EMO[o.latest]||'')+' '+o.s.replace('USDT','')+'</span>').join(' ')
-    : '<span class="dim">直近の強いレーダー反応なし</span>';
-  hotbar.querySelectorAll('.hot').forEach(el => el.onclick = () => jump(el.dataset.jump));
-} catch(e) {
-  symsDiv.innerHTML = '';
-  SYMBOLS.forEach(s => addTab(s, s.replace('USDT','')));   // シンプル版フォールバック
 }
+// 初期は保存済みSYMBOLSで即表示 → 直後に本家ランキングで置換
+rebuildTabs(SYMBOLS.map(s => ({s, score:null, emoji: heatOf(s).latest ? (EMO[heatOf(s).latest]||'') : ''})));
+async function refreshRanking(){
+  try{
+    const r = await fetch('https://dump-radar.pages.dev/radar?t='+Date.now());
+    if(!r.ok) return; const d = await r.json();
+    const seen={};
+    ['tokens','top5','movers'].forEach(g => (d[g]||[]).forEach(t => {
+      if(t.dump_score!=null) seen[t.symbol] = {s:t.symbol, score:t.dump_score, kind:t.dump_kind};
+    }));
+    let list = Object.values(seen).sort((a,b)=>b.score-a.score);
+    if(!list.length) return;
+    list.forEach(o => { const l=heatOf(o.s).latest; o.emoji = l?(EMO[l]||''):''; });
+    rebuildTabs(list);
+    updateTickers();
+    const hotbar = document.getElementById('hotbar');
+    const hot = list.slice(0,5);
+    hotbar.innerHTML = '🔥 本家 危険度TOP: ' + hot.map(o =>
+      '<span class="hot" data-jump="'+o.s+'">'+tierMark(o.score)+o.s.replace('USDT','')+' '+o.score+'</span>').join(' ');
+    hotbar.querySelectorAll('.hot').forEach(el => el.onclick = () => jump(el.dataset.jump));
+  }catch(e){}
+}
+refreshRanking(); setInterval(refreshRanking, 60000);
 // 各タブに 24h変化率をライブ表示 (movers も一目で)
 async function updateTickers(){
   try{
