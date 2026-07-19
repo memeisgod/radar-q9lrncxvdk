@@ -39,7 +39,7 @@ h1{font-size:16px;margin:2px 0 8px}
 h1{font-size:15px;margin:2px 0 6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 @media(max-width:640px){ body{padding:8px} h1{font-size:13px} }
 </style></head><body>
-<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-19 19:34 更新 / 価格ライブ</span></h1>
+<h1>📡 Dump-Radar <span id="status">●</span> <span class="dim">2026-07-20 00:19 更新 / 価格ライブ</span></h1>
 <div id="hotbar"></div>
 <div id="syms" class="bar"></div>
 <div class="row">
@@ -336,7 +336,6 @@ document.getElementById('notifyBtn').onclick = function(){
   if(v.trim()){
     localStorage.setItem('discord_webhook', v.trim());
     this.classList.add('on');
-    if(window.Notification && Notification.permission==='default') Notification.requestPermission();
     const fd=new FormData(); fd.append('content','✅ dump-radar 価格アラート 接続テスト');
     fetch(v.trim(),{method:'POST',body:fd}).then(()=>alert('テスト送信しました。Discordを確認してください。')).catch(()=>alert('送信に失敗しました。URLを確認してください。'));
   } else { localStorage.removeItem('discord_webhook'); this.classList.remove('on'); alert('通知を解除しました。'); }
@@ -364,7 +363,7 @@ async function checkPriceAlerts(){
         const name=s.replace('USDT','');
         const msg=`🔔 **価格アラート** ${name}: 設定価格 ${a.p} に到達 (現在 ${price})`;
         postDiscord(msg);
-        if(window.Notification && Notification.permission==='granted') new Notification('価格アラート', {body:`${name} ${a.p} 到達`});
+        // ブラウザ通知は廃止 (2026-07-20 ユーザー: PCゲーム中の通知が邪魔。Discordのみに)
         // 一度きり: 発火したアラートを削除
         try{ const arr=JSON.parse(localStorage.getItem('draw_'+s))||[];
           const idx=arr.findIndex(d=>d.type==='alert'&&d.p===a.p);
